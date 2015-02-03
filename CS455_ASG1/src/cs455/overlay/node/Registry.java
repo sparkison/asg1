@@ -42,7 +42,7 @@ public class Registry extends TCPServer{
 	private List<Event> nodesCompleted = new ArrayList<Event>();
 	private List<Event> nodesSummary = new ArrayList<Event>();
 	private RoutingTable routingTable;
-	
+
 	// Set routing table size (default is 3 if not specified)
 	private int NR = 3;
 	// Range of valid ID's for client Nodes (0[inclusive] to 127[exclusive])
@@ -106,7 +106,7 @@ public class Registry extends TCPServer{
 		case Protocol.OVERLAY_NODE_REPORTS_TASK_FINISHED:
 			nodeReportsFinish(event);
 			break;
-			
+
 		case Protocol.OVERLAY_NODE_REPORTS_TRAFFIC_SUMMARY:
 			nodeReportsSummary(event);
 			break;
@@ -126,7 +126,7 @@ public class Registry extends TCPServer{
 	/*
 	 * RECEIVE FROM CLIENT
 	 */
-
+	
 	private void nodeReportsFinish(Event event){
 		OverlayNodeReportsTaskFinished taskFinish = (OverlayNodeReportsTaskFinished) event;
 		nodesCompleted.add(taskFinish);
@@ -144,7 +144,7 @@ public class Registry extends TCPServer{
 			statistics.sendNodeData(nodesSummary);
 		}
 	}
-	
+
 	private void getSetupStatus(Event event){
 
 		NodeReportsOverlaySetupStatus nodeSetupStatus = (NodeReportsOverlaySetupStatus) event;
@@ -179,7 +179,7 @@ public class Registry extends TCPServer{
 	}
 
 	private void registerNode(Event event, TCPConnectionThread client){
-		
+
 		/*
 		 * Register Client node
 		 * Attempts to register client node
@@ -262,8 +262,14 @@ public class Registry extends TCPServer{
 	// Called by command parser, needs to be public
 	public void requestTaskInitiate(int numMessages){
 
-		if(!routingTable.isEmpty()){
-
+		if(routingTable == null || routingTable.isEmpty()){
+			System.out.println("The overlay has not yet been setup, please use \"setup-overlay [number-of-messages]\" command first to setup the overlay");
+		}else{
+			
+			// Reset completed and summary for new round
+			nodesCompleted.clear();
+			nodesSummary.clear();
+			
 			System.out.println("Starting task with " + numMessages + " packets...\n");
 
 			Event intiateTask = ef.buildEvent(Protocol.REGISTRY_REQUESTS_TASK_INITIATE, "" + numMessages);
@@ -276,9 +282,6 @@ public class Registry extends TCPServer{
 					e.printStackTrace();
 				}
 			}
-
-		}else{
-			System.out.println("The overlay has not yet been setup, please use \"setup-overlay [number-of-messages]\" command first to setup the overlay");
 		}
 
 	}
@@ -366,8 +369,6 @@ public class Registry extends TCPServer{
 				System.out.println("NodeID: " + entry.getKey() + ", " + entry.getValue()[0]);
 			}
 		}
-
-		System.out.println();
 
 	}// END printNodes **************
 

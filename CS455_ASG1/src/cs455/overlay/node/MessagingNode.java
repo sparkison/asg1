@@ -57,16 +57,7 @@ public class MessagingNode extends TCPClient {
 		MessagingNode messengerClient = new MessagingNode(args[0], Integer.parseInt(args[1]));
 
 		// Start client
-		messengerClient.startClient();
-
-		// Delay for a second to allow server to respond
-		try {
-			Thread.sleep(200);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-		// Accept user input
-		new InteractiveCommandParser(messengerClient);
+		messengerClient.startClient();		
 
 	}// END Main **************
 
@@ -107,7 +98,10 @@ public class MessagingNode extends TCPClient {
 				System.out.println("Error closing Clients TCPServerThread down: ");
 				e.printStackTrace();
 			}
-		}		
+		}
+
+		// Accept user input
+		new InteractiveCommandParser(this);
 
 	}// END startClient **************
 
@@ -247,9 +241,9 @@ public class MessagingNode extends TCPClient {
 			Socket socket = new Socket(node.getIpAddress(), node.getPortNum());
 			clientConnections.put(node.getNodeID(), new TCPConnectionThread(clientReceiver.getThreadGroup(), socket, clientReceiver));
 		}
-		
+
 		int numPackets = taskInitiate.getNumPackets();
-		
+
 		// Update the receiver with list of connections
 		clientReceiver.setRoutingTable(clientConnections);				
 
@@ -275,7 +269,7 @@ public class MessagingNode extends TCPClient {
 		//System.out.println("Getting ready to loop for " + numPackets + " packets");
 
 		for(int i = 0; i<numPackets; ++i){
-			
+
 			// Get payload and select node to send to
 			payload = getPayload();
 			sink = selectRandomNode(rand);
@@ -496,7 +490,7 @@ public class MessagingNode extends TCPClient {
 		public void onEvent(Event event, TCPConnectionThread client) {
 			handleMessage(event);
 		}
-		
+
 		final void handleMessage(Event event){
 			OverlayNodeSendsData ovnData;
 
@@ -504,9 +498,9 @@ public class MessagingNode extends TCPClient {
 				ovnData = new OverlayNodeSendsData(event.getBytes());
 
 				if(ovnData.getDestinationID() == myID){
-					
+
 					updateReceived(ovnData.getPayLoad());
-					
+
 					// Debugging
 					System.out.println("Received payload!");
 					System.out.println("Trace: packet trace length = " + ovnData.getHopTraceLength() + ", hop trace = " + ovnData.getHopTrace());
@@ -522,14 +516,14 @@ public class MessagingNode extends TCPClient {
 		}
 
 		final void forwardPacket(OverlayNodeSendsData ovnData) throws IOException{
-			
+
 			updateRelay();
 			int sink = ovnData.getDestinationID();
-			
+
 			// Update the dissemination for this packet
 			ovnData.updateHopLength();
 			ovnData.updateHopTrace(myID);
-			
+
 			if(clientConnections.containsKey(sink)){
 				clientConnections.get(sink).sendToClient(ovnData.getBytes());
 			}else{				
@@ -570,12 +564,12 @@ public class MessagingNode extends TCPClient {
 					System.out.println("Error, node not in list of neighbors.");
 			}
 		}
-		
+
 		private synchronized void updateReceived(long payload){
 			receiveSummation += payload;
 			receiveTraker++;
 		}
-		
+
 		private synchronized void updateRelay(){
 			relayTracker++;
 		}
@@ -603,7 +597,7 @@ public class MessagingNode extends TCPClient {
 		public int getRelayTracker(){
 			return relayTracker;
 		}
-		
+
 		public int getReceiveTraker(){
 			return receiveTraker;
 		}

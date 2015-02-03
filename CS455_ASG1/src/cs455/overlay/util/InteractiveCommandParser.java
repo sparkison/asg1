@@ -30,7 +30,7 @@ public class InteractiveCommandParser{
 
 			while (true) 
 			{
-				System.out.print("Enter a command: ");
+				//System.out.print("Enter a command: ");
 				message = fromConsole.readLine();
 				handleMessageFromRegistryUI(message);
 			}
@@ -55,7 +55,7 @@ public class InteractiveCommandParser{
 
 			while (true) 
 			{
-				System.out.print("Enter a command: ");
+				//System.out.print("Enter a command: ");
 				message = fromConsole.readLine();
 				handleMessageFromClientUI(message);
 			}
@@ -103,7 +103,6 @@ public class InteractiveCommandParser{
 
 		}else{
 			System.out.println("Command not recognized.");
-			System.out.println();
 		}
 	}
 
