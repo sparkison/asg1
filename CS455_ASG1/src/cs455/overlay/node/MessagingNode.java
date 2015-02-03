@@ -514,7 +514,9 @@ public class MessagingNode extends TCPClient {
 				ovnData = new OverlayNodeSendsData(event.getBytes());
 
 				if(ovnData.getDestinationID() == myID){
+					
 					updateReceived(ovnData.getPayLoad());
+					
 					// Debugging
 					System.out.println("Received payload!");
 					System.out.println("Trace: packet trace length = " + ovnData.getHopTraceLength() + ", hop trace = " + ovnData.getHopTrace());

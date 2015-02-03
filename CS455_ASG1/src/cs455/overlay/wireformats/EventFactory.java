@@ -305,7 +305,7 @@ public class EventFactory {
 	}// END getType **************
 	
 	/**
-	 * Gets the string from the getEvent method Delimited by ';'
+	 * Gets the string from the getEvent method, parameters delimited by ';'
 	 * 
 	 * @return String
 	 */

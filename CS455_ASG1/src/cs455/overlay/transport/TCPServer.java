@@ -16,231 +16,204 @@ import cs455.overlay.wireformats.Event;
 import cs455.overlay.wireformats.EventFactory;
 
 
-@SuppressWarnings("unused")
 public abstract class TCPServer implements Runnable{
 
-    // Instance variables **************
-    private ServerSocket serverSocket = null;
-    private Thread connectionListener;
-    private ThreadGroup clientThreadGroup;
-    private int port;
-    private int backlog = 1000;
-    //private ThreadGroup clientThreadGroup;
-    private boolean iAmListening = true;
-    private EventFactory ef = EventFactory.getInstance();
+	// Instance variables **************
+	private ServerSocket serverSocket = null;
+	private Thread connectionListener;
+	private ThreadGroup clientThreadGroup;
+	private int port;
+	private int backlog = 1000;
+	//private ThreadGroup clientThreadGroup;
+	private boolean iAmListening = true;
+	private EventFactory ef = EventFactory.getInstance();
 
-    // Constructor **************
-    public TCPServer(int port){
-        this.port = port;
+	// Constructor **************
+	public TCPServer(int port){
+		this.port = port;
+		// A threadgroup to hold the connected clients, not used right now
+		this.clientThreadGroup = new ThreadGroup("TCPConnectionThread threads"){
+			public void uncaughtException(Thread thread, Throwable exception){
+				clientException((TCPConnectionThread)thread, exception);
+			}
+		};
+	}
 
-        this.clientThreadGroup = new ThreadGroup("TCPConnectionThread threads"){
-            public void uncaughtException(Thread thread, Throwable exception){
-                clientException((TCPConnectionThread)thread, exception);
-            }
-        };
-    }
+	/**
+	 * Starts listening for connections
+	 * on the server socket
+	 * @throws IOException
+	 * @return void
+	 */
+	final public void listen() throws IOException{
+		if (!isListening()){
+			if (serverSocket == null){
+				serverSocket = new ServerSocket(getPort(), backlog);
+				// Need to see if auto-assigning port or not...
+				if(getPort() == 0){
+					this.port = serverSocket.getLocalPort();
+				}
+			}
+			iAmListening = true;
+			connectionListener = new Thread(this);
+			connectionListener.start();
+		}
+	}
 
-    /**
-     * Starts listening for connections
-     * on the server socket
-     * @throws IOException
-     * @return void
-     */
-    final public void listen() throws IOException{
-        if (!isListening())
-        {
-            if (serverSocket == null)
-            {
-                serverSocket = new ServerSocket(getPort(), backlog);
-                // Need to see if auto-assigning port or not...
-                if(getPort() == 0){
-                    this.port = serverSocket.getLocalPort();
-                }
-            }
+	/**
+	 * Call method to stop listening for connections
+	 * on this TCPServer instance
+	 */
+	final public void stopListening(){
+		iAmListening = false;
+	}
 
-            iAmListening = true;
-            connectionListener = new Thread(this);
-            connectionListener.start();
-        }
-    }
+	/**
+	 * Close the server down
+	 * @throws IOException
+	 * @return void
+	 */
+	final synchronized public void close() throws IOException{
+		if (serverSocket == null) 
+			return;
 
-    /**
-     * Call method to stop listening for connections
-     * on this TCPServer instance
-     */
-    final public void stopListening(){
-        iAmListening = false;
-    }
+		stopListening();
 
-    /**
-     * Close the server down
-     * @throws IOException
-     * @return void
-     */
-    final synchronized public void close() throws IOException{
-        if (serverSocket == null) return;
+		try{
+			serverSocket.close();
+		}
+		finally{
+			// Shut it down!
+			// Close sockets to connected clients...
+			Thread[] clientThreadList = getConnectedClients();
 
-        stopListening();
+			for(Thread client : clientThreadList){
+				try{
+					((TCPConnectionThread)client).close();
+				}catch(Exception exc) {// Ignore all exceptions when closing clients.
+					System.out.println("Error closing client connection: ");
+					exc.printStackTrace();
+				}
+			}
+			serverSocket = null;
+			serverClosed();
+		}
+	}
 
-        try
-        {
-            serverSocket.close();
-        }
-        finally
-        {
-            // Shut it down!
-            // Close sockets to connected clients...
-            Thread[] clientThreadList = getConnectedClients();
+	/**
+	 * Tells whether the server thread is listening
+	 * @return boolean
+	 */
+	final public boolean isListening(){
+		return (connectionListener != null);
+	}
 
-            for(Thread client : clientThreadList){
-                try
-                {
-                    ((TCPConnectionThread)client).close();
-                }
-                // Ignore all exceptions when closing clients.
-                catch(Exception exc) {
-                    System.out.println("Error closing client connection: ");
-                    exc.printStackTrace();
-                }
-            }
+	/**
+	 * Returns list of connected clients
+	 * List is Threads[] array of TCPConnectionThread objects
+	 * @return Thread[]
+	 */
+	synchronized final public Thread[] getConnectedClients(){
+		Thread[] clientThreadList = new
+				Thread[clientThreadGroup.activeCount()];
 
-            serverSocket = null;
-            serverClosed();
-        }
-    }
+		clientThreadGroup.enumerate(clientThreadList);
 
-    /**
-     * Tells whether the server thread is listening
-     * @return boolean
-     */
-    final public boolean isListening(){
-        return (connectionListener != null);
-    }
+		return clientThreadList;
+	}
 
-    /**
-     * Returns list of connected clients
-     * List is Threads[] array of TCPConnectionThread objects
-     * @return Thread[]
-     */
-    synchronized final public Thread[] getConnectedClients(){
-        Thread[] clientThreadList = new
-                Thread[clientThreadGroup.activeCount()];
+	/**
+	 * A count of how many clients are connected
+	 * to this TCPServer
+	 * @return int
+	 */
+	final public int getNumberOfClients(){
+		return clientThreadGroup.activeCount();
+	}
 
-        clientThreadGroup.enumerate(clientThreadList);
+	/**
+	 * GETTERS **************
+	 */
 
-        return clientThreadList;
-    }
+	final public ThreadGroup getThreadGroup(){
+		return clientThreadGroup;
+	}
 
-    /**
-     * A count of how many clients are connected
-     * to this TCPServer
-     * @return int
-     */
-    final public int getNumberOfClients(){
-        return clientThreadGroup.activeCount();
-    }
+	final public int getPort(){
+		return port;
+	}
 
-    /**
-     * GETTERS **************
-     */
-    
-    final public ThreadGroup getThreadGroup(){
-        return clientThreadGroup;
-    }
+	final public InetAddress getInetAddress(){
+		return serverSocket.getInetAddress();
+	}
 
-    final public int getPort(){
-        return port;
-    }
+	/**
+	 * Used for the start() call to run this thread
+	 */
+	final public void run(){
+		// call the hook method to notify that the server is starting
+		serverStarted();
+		try{
+			// Repeatedly waits for a new client connection, accepts it, and
+			// starts a new thread to handle data exchange.
+			while(iAmListening){
+				try{
+					// Wait here for new connection attempts, or a timeout
+					Socket clientSocket = serverSocket.accept();
+					// When a client is accepted, create a thread to handle
+					// the data exchange, then add it to thread group
+					synchronized(this){
+						new TCPConnectionThread(this.clientThreadGroup, clientSocket, this);
+					}
+				}
+				catch (InterruptedIOException exception){} // Called when timeout occurs, not used for now.
+			}
+			// call the hook method to notify that the server has stopped
+			serverStopped();
+		}catch (IOException exception){
+			if (iAmListening){
+				// Closing the socket must have thrown a SocketException
+				listeningException(exception);
+			}else{
+				serverStopped();
+			}
+		}finally{
+			iAmListening = false;
+			connectionListener = null;
+		}
+	}
 
-    final public InetAddress getInetAddress() {
-        return serverSocket.getInetAddress();
-    }
+	/**
+	 * HOOK methods for debugging
+	 */
 
-    /**
-     * Used for the start() call to run this thread
-     */
-    final public void run(){
-        // call the hook method to notify that the server is starting
-        serverStarted();
+	protected void clientConnected(TCPConnectionThread client) {}
 
-        try
-        {
-            // Repeatedly waits for a new client connection, accepts it, and
-            // starts a new thread to handle data exchange.
-            while(iAmListening)
-            {
-                try
-                {
-                    // Wait here for new connection attempts, or a timeout
-                    Socket clientSocket = serverSocket.accept();
+	synchronized protected void clientDisconnected(TCPConnectionThread client) {}
 
-                    // When a client is accepted, create a thread to handle
-                    // the data exchange, then add it to thread group
+	synchronized protected void clientException(TCPConnectionThread client, Throwable exception) {}
 
-                    synchronized(this)
-                    {
-                        TCPConnectionThread c = new TCPConnectionThread(this.clientThreadGroup, clientSocket, this);
-                    }
-                }
-                catch (InterruptedIOException exception)
-                {
-                    // This will be thrown when a timeout occurs.
-                    // No need to throw exception here.
-                }
-            }
+	protected void listeningException(Throwable exception) {}
 
-            // call the hook method to notify that the server has stopped
-            serverStopped();
-        }
-        catch (IOException exception)
-        {
-            if (iAmListening)
-            {
-                // Closing the socket must have thrown a SocketException
-                listeningException(exception);
-            }
-            else
-            {
-                serverStopped();
-            }
-        }
-        finally
-        {
-            iAmListening = false;
-            connectionListener = null;
-        }
-    }
+	protected void serverStarted() {}
 
-    /**
-     * Unimplemented methods
-     * Placeholders for debugging
-     */
+	protected void serverStopped() {}
 
-    protected void clientConnected(TCPConnectionThread client) {}
+	protected void serverClosed() {}
 
-    synchronized protected void clientDisconnected(TCPConnectionThread client) {}
+	/**
+	 * Method to inherit by sub-class
+	 * Used to handle messages
+	 * @param data
+	 * @param client
+	 */
+	protected abstract void onEvent(Event event, TCPConnectionThread client);
 
-    synchronized protected void clientException(TCPConnectionThread client, Throwable exception) {}
-
-    protected void listeningException(Throwable exception) {}
-
-    protected void serverStarted() {}
-
-    protected void serverStopped() {}
-
-    protected void serverClosed() {}
-
-    /**
-     * Method to inherit by sub-class
-     * Used to handle messages
-     * @param data
-     * @param client
-     */
-    protected abstract void onEvent(Event event, TCPConnectionThread client);
-
-    final synchronized void receiveMessageFromClient(byte[] data, TCPConnectionThread client){
-    	Event event = ef.getEvent(data);
-        onEvent(event, client);
-    }
+	final synchronized void receiveMessageFromClient(byte[] data, TCPConnectionThread client){
+		Event event = ef.getEvent(data);
+		// passing TCPConnectionThread on to server to 
+		// make things easier for response messages
+		onEvent(event, client);
+	}
 
 }// ************** END TCPServer class **************
