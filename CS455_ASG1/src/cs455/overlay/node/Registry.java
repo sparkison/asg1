@@ -207,7 +207,7 @@ public class Registry extends TCPServer{
 		Event registrationStatus = ef.buildEvent(Protocol.REGISTRY_REPORTS_REGISTRATION_STATUS, status + ";" + message.length() + ";" + message);
 
 		try {
-			client.setInfo("nodeID", nodeID);
+			client.setThreadID(nodeID);
 			client.sendToClient(registrationStatus.getBytes());
 		} catch (IOException exc) {
 			System.out.println("Error sending data to client: ");
@@ -373,14 +373,14 @@ public class Registry extends TCPServer{
 
 	protected void clientDisconnected(TCPConnectionThread client) {
 		// Client disconnected, remove them from list of registered nodes
-		registeredNodes.remove(client.getInfo("nodeID"));
+		registeredNodes.remove(client.getThreadID());
 		// Routing table is now void, need to rebuild
 		routingTable.clear();
 	}
 
 	protected void clientException(TCPConnectionThread client, Throwable exception) {
 		// Client had connection exception, remove them from list of registered nodes
-		registeredNodes.remove(client.getInfo("nodeID"));
+		registeredNodes.remove(client.getThreadID());
 		// Routing table is now void, need to rebuild
 		routingTable.clear();
 	}

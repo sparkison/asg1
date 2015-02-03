@@ -489,8 +489,6 @@ public class MessagingNode extends TCPClient {
 		private int relayTracker;
 		private Map<Integer, TCPConnectionThread> clientConnections;
 
-		// Variables for holding message receiving stats...
-
 		public ClientReceiver(int port) {
 			super(port);
 		}

@@ -23,7 +23,7 @@ public class TCPConnectionThread extends Thread {
 	private DataInputStream din;
 	private DataOutputStream dout;
 	private boolean iAmListening = false;
-	private HashMap savedInfo = new HashMap(5);
+	private int threadID;
 
 	// Constructor **************
 	public TCPConnectionThread(ThreadGroup group, Socket clientSocket, TCPServer server) throws IOException {
@@ -89,17 +89,16 @@ public class TCPConnectionThread extends Thread {
 	 * @param String infoType
 	 * @param Object info
 	 */
-	@SuppressWarnings("unchecked")
-	public void setInfo(String infoType, Object info){
-		savedInfo.put(infoType, info);
+	public void setThreadID(int id){
+		threadID = id;
 	}
 
 	/**
 	 * For getting extra data relevant to this client
 	 * @param String infoType
 	 */
-	public Object getInfo(String infoType){
-		return savedInfo.get(infoType);
+	public int getThreadID(){
+		return threadID;
 	}
 
 	/**
