@@ -20,17 +20,18 @@ import cs455.overlay.wireformats.EventFactory;
 public abstract class TCPClient implements Runnable{
 
 	// Instance variables **************
-	private Socket clientSocket;
+	private EventFactory ef = EventFactory.getInstance();
 	private DataOutputStream dout;
 	private DataInputStream din;
+	private Socket clientSocket;
 	private Thread clientThread;
-	private boolean iAmListening = false;
 	private String host;
+	private boolean iAmListening = false;
 	private int port;
-	private EventFactory ef = EventFactory.getInstance();
 
 	// Constructor **************
 	public TCPClient(String host, int port){
+		// Set the host and port, call openConnection() to setup connection
 		this.host = host;
 		this.port = port;
 	}
@@ -41,31 +42,30 @@ public abstract class TCPClient implements Runnable{
 	 */
 	final public void openConnection() throws IOException{
 		// Do not do anything if the connection is already open
-		if (isConnected())
-			return;
-
-		// Initialize our din/dout streams and socket
-		try{
-			clientSocket = new Socket(host, port);
-			dout = new DataOutputStream(clientSocket.getOutputStream());
-			din = new DataInputStream(clientSocket.getInputStream());
-		}catch (IOException ex){
+		if (!isConnected()){
+			// Initialize our data input/output streams, and socket
 			try{
-				closeAll();
-			}catch (Exception exc){
-				System.out.println("Error setting up connection with Registry: ");
-				exc.printStackTrace();
+				clientSocket = new Socket(host, port);
+				dout = new DataOutputStream(clientSocket.getOutputStream());
+				din = new DataInputStream(clientSocket.getInputStream());
+			}catch (IOException ex){
+				try{
+					closeAll();
+				}catch (Exception exc){
+					System.out.println("Error setting up connection with Registry: ");
+					exc.printStackTrace();
+				}
+				// Throw exception up to implementing class
+				throw ex; 
 			}
-			// Throw exception up to implementing class
-			throw ex; 
+			// Create the thread to handle receiving of data
+			clientThread = new Thread(this); 
+			// Used for the loop to keep listening
+			iAmListening = true;
+			// Start it up!!
+			clientThread.start();
 		}
 
-		// Create the thread to handle receiving of data
-		clientThread = new Thread(this); 
-		// Used for the loop to keep listening
-		iAmListening = true;
-		// Start it up!!
-		clientThread.start();
 	}
 
 	/**

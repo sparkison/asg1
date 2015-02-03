@@ -25,12 +25,12 @@ public class TCPConnectionThread extends Thread {
 
 	// Constructor **************
 	public TCPConnectionThread(ThreadGroup group, Socket clientSocket, TCPServer server) throws IOException {
-		super(group, (Runnable) null);
 		// Initialize variables
+		super(group, (Runnable) null);		
 		this.clientSocket = clientSocket;
 		this.server = server;
 
-		// Initialize our din/dout streams
+		// Initialize data input/output streams
 		try {
 			dout = new DataOutputStream(clientSocket.getOutputStream());
 			din = new DataInputStream(clientSocket.getInputStream());
@@ -59,11 +59,17 @@ public class TCPConnectionThread extends Thread {
 	final public void sendToClient(byte[] data) throws IOException{
 		if (clientSocket == null || dout == null)
 			throw new SocketException("socket does not exist");
-
-		int dataLength = data.length;
-		dout.writeInt(dataLength);
-		dout.write(data, 0, dataLength);
-		dout.flush();
+		/*
+		 * Need to synchronize to avoid concurrency issues
+		 * Multiple Threads could be sending messages
+		 * to this client at any given time
+		 */
+		synchronized(this){
+			int dataLength = data.length;
+			dout.writeInt(dataLength);
+			dout.write(data, 0, dataLength);
+			dout.flush();
+		}
 	}
 
 	/**
@@ -71,12 +77,12 @@ public class TCPConnectionThread extends Thread {
 	 * @throws IOException
 	 */
 	final public void close() throws IOException{
-		iAmListening = false; // Tells the thread to stop
-
+		// Tell the thread to stop listening for input
+		iAmListening = false; 
 		try{
 			closeAll();
 		}finally{
-			// Hook for TCPServer to let it know we've disconnected 
+			// Hook for TCPServer to let the Registry know we've disconnected 
 			server.clientDisconnected(this);
 		}
 	}
@@ -104,16 +110,24 @@ public class TCPConnectionThread extends Thread {
 	 * @return
 	 */
 	final public InetAddress getInetAddress(){
-		return clientSocket == null ? null : clientSocket.getInetAddress();
+		if(clientSocket != null)
+			return clientSocket.getInetAddress();
+		else 
+			return null;
+		
 	}
 
 	public String toString(){
-		return clientSocket == null ? null : clientSocket.getInetAddress().getHostName() + " ("
-				+ clientSocket.getInetAddress().getHostAddress() + ") " + clientSocket.getPort();
+		if(clientSocket != null){
+			return clientSocket.getInetAddress().getHostName() + " ("
+					+ clientSocket.getInetAddress().getHostAddress() + ") " 
+					+ clientSocket.getPort();
+		}else{
+			return null;
+		}
 	}
 
 	/**
-	 * Used for the start() call to run this thread
 	 * Don't call directly. start() is called by constructor
 	 */
 	final public void run(){
@@ -132,16 +146,18 @@ public class TCPConnectionThread extends Thread {
 				dataLength = din.readInt();
 				data = new byte[dataLength];
 				din.readFully(data, 0, dataLength);
-				server.receiveMessageFromClient(data, this);
+				server.messageFromClient(data, this);
 			}
+
 		}catch (Exception exception){
 			if (iAmListening){
 				try{
 					closeAll();
-				} catch (Exception exc){
+				}catch (Exception exc){
 					System.out.println("");
 					exc.printStackTrace();
 				}
+				// Hook for TCPServer to let the Registry know we had a problem 
 				server.clientException(this, exception);
 			}
 		}
@@ -170,8 +186,7 @@ public class TCPConnectionThread extends Thread {
 	protected void finalize(){
 		try {
 			closeAll();
-		} catch (IOException exc){
-			System.out.println("");
+		}catch (IOException exc){
 			exc.printStackTrace();
 		}
 	}

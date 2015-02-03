@@ -19,36 +19,31 @@ import cs455.overlay.wireformats.EventFactory;
 public abstract class TCPServer implements Runnable{
 
 	// Instance variables **************
+	private EventFactory ef = EventFactory.getInstance();
 	private ServerSocket serverSocket = null;
 	private Thread connectionListener;
 	private ThreadGroup clientThreadGroup;
-	private int port;
-	private int backlog = 1000;
-	//private ThreadGroup clientThreadGroup;
 	private boolean iAmListening = true;
-	private EventFactory ef = EventFactory.getInstance();
+	private int port;
 
 	// Constructor **************
 	public TCPServer(int port){
+		// Set the port
 		this.port = port;
-		// A threadgroup to hold the connected clients, not used right now
-		this.clientThreadGroup = new ThreadGroup("TCPConnectionThread threads"){
-			public void uncaughtException(Thread thread, Throwable exception){
-				clientException((TCPConnectionThread)thread, exception);
-			}
-		};
+		// A ThreadGroup to hold the clients connected to this registry
+		this.clientThreadGroup = new ThreadGroup("TCPConnectionThread threads");
 	}
 
 	/**
 	 * Starts listening for connections
-	 * on the server socket
+	 * on the registry socket
 	 * @throws IOException
 	 * @return void
 	 */
 	final public void listen() throws IOException{
 		if (!isListening()){
 			if (serverSocket == null){
-				serverSocket = new ServerSocket(getPort(), backlog);
+				serverSocket = new ServerSocket(getPort());
 				// Need to see if auto-assigning port or not...
 				if(getPort() == 0){
 					this.port = serverSocket.getLocalPort();
@@ -69,39 +64,39 @@ public abstract class TCPServer implements Runnable{
 	}
 
 	/**
-	 * Close the server down
+	 * Close the registry down
 	 * @throws IOException
 	 * @return void
 	 */
 	final synchronized public void close() throws IOException{
-		if (serverSocket == null) 
-			return;
+		if (serverSocket != null) {
+			stopListening();
 
-		stopListening();
-
-		try{
-			serverSocket.close();
-		}
-		finally{
-			// Shut it down!
-			// Close sockets to connected clients...
-			Thread[] clientThreadList = getConnectedClients();
-
-			for(Thread client : clientThreadList){
-				try{
-					((TCPConnectionThread)client).close();
-				}catch(Exception exc) {// Ignore all exceptions when closing clients.
-					System.out.println("Error closing client connection: ");
-					exc.printStackTrace();
-				}
+			try{
+				serverSocket.close();
 			}
-			serverSocket = null;
-			serverClosed();
+			finally{
+				// Shut it down!
+				// Close sockets to connected clients...
+				Thread[] clientThreadList = getConnectedClients();
+
+				for(Thread client : clientThreadList){
+					try{
+						((TCPConnectionThread)client).close();
+					}catch(Exception exc) {// Ignore all exceptions when closing clients.
+						System.out.println("Error closing client connection: ");
+						exc.printStackTrace();
+					}
+				}
+				serverSocket = null;
+				registryHasClosed();
+			}
 		}
+
 	}
 
 	/**
-	 * Tells whether the server thread is listening
+	 * Tells whether the registry thread is listening
 	 * @return boolean
 	 */
 	final public boolean isListening(){
@@ -114,11 +109,8 @@ public abstract class TCPServer implements Runnable{
 	 * @return Thread[]
 	 */
 	synchronized final public Thread[] getConnectedClients(){
-		Thread[] clientThreadList = new
-				Thread[clientThreadGroup.activeCount()];
-
+		Thread[] clientThreadList = new Thread[clientThreadGroup.activeCount()];
 		clientThreadGroup.enumerate(clientThreadList);
-
 		return clientThreadList;
 	}
 
@@ -126,28 +118,20 @@ public abstract class TCPServer implements Runnable{
 	 * GETTERS **************
 	 */
 
-	final public int getNumberOfClients(){
-		return clientThreadGroup.activeCount();
-	}	
+	final public int getNumberOfClients(){return clientThreadGroup.activeCount();}	
 
-	final public ThreadGroup getThreadGroup(){
-		return clientThreadGroup;
-	}
+	final public ThreadGroup getThreadGroup(){return clientThreadGroup;}
 
-	final public int getPort(){
-		return port;
-	}
+	final public int getPort(){return port;}
 
-	final public InetAddress getInetAddress(){
-		return serverSocket.getInetAddress();
-	}
+	final public InetAddress getInetAddress(){return serverSocket.getInetAddress();}
 
 	/**
 	 * Used for the start() call to run this thread
 	 */
 	final public void run(){
-		// call the hook method to notify that the server is starting
-		serverStarted();
+		// call the hook method to notify that the registry is starting
+		registryHasStarted();
 		try{
 			// Repeatedly waits for a new client connection, accepts it, and
 			// starts a new thread to handle data exchange.
@@ -163,14 +147,14 @@ public abstract class TCPServer implements Runnable{
 				}
 				catch (InterruptedIOException exception){} // Called when timeout occurs, not used for now.
 			}
-			// call the hook method to notify that the server has stopped
-			serverStopped();
+			// call the hook method to notify that the registry has stopped
+			registryHasStopped();
 		}catch (IOException exception){
 			if (iAmListening){
 				// Closing the socket must have thrown a SocketException
 				listeningException(exception);
 			}else{
-				serverStopped();
+				registryHasStopped();
 			}
 		}finally{
 			iAmListening = false;
@@ -190,11 +174,11 @@ public abstract class TCPServer implements Runnable{
 
 	protected void listeningException(Throwable exception) {}
 
-	protected void serverStarted() {}
+	protected void registryHasStarted() {}
 
-	protected void serverStopped() {}
+	protected void registryHasStopped() {}
 
-	protected void serverClosed() {}
+	protected void registryHasClosed() {}
 
 	/**
 	 * Method to inherit by sub-class
@@ -204,9 +188,9 @@ public abstract class TCPServer implements Runnable{
 	 */
 	protected abstract void onEvent(Event event, TCPConnectionThread client);
 
-	final synchronized void receiveMessageFromClient(byte[] data, TCPConnectionThread client){
+	final synchronized void messageFromClient(byte[] data, TCPConnectionThread client){
 		Event event = ef.getEvent(data);
-		// passing TCPConnectionThread on to server to 
+		// passing TCPConnectionThread on to the Registry to 
 		// make things easier for response messages
 		onEvent(event, client);
 	}

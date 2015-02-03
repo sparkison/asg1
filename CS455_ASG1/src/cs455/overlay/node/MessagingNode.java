@@ -6,8 +6,6 @@
 
 package cs455.overlay.node;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -35,6 +33,7 @@ public class MessagingNode extends TCPClient {
 
 	// Instance variables **************
 	private	EventFactory ef = EventFactory.getInstance();
+	private Map<Integer, TCPConnectionThread> clientConnections = new HashMap<Integer, TCPConnectionThread>();
 	// This is the TCPServerThread for this client
 	private ClientReceiver clientReceiver;
 	private String myIPAddress;
@@ -150,20 +149,10 @@ public class MessagingNode extends TCPClient {
 			break;
 
 		case Protocol.REGISTRY_REQUESTS_TASK_INITIATE:
-			try {
-				startTask(event);
-			} catch (UnknownHostException e1) {
-				System.out.println("Unknown host error: ");
-				e1.printStackTrace();
-			} catch (IOException e1) {
-				System.out.println("IO Exception error: ");
-				e1.printStackTrace();
-			}
+			startTask(event);
 			break;
 
 		case Protocol.REGISTRY_REQUESTS_TRAFFIC_SUMMARY:
-			// For testing, only need getStats
-			printCounters();
 			getStats();
 			break;
 
@@ -222,106 +211,150 @@ public class MessagingNode extends TCPClient {
 	private void setupRoutingTable(Event event){
 
 		RegistrySendsNodeManifest nodeManifest = (RegistrySendsNodeManifest) event;
-
 		routingTable = nodeManifest.getRoutingEntries();
 		nodeList = nodeManifest.getAllNodes();
-
+		// if new routing table sent, initialize/re-initialize connections
+		clientConnections.clear();
 
 	}
 
 	// Attempt to initiate task
 	// Called within class
-	private void startTask(Event event) throws UnknownHostException, IOException{
-
-		Map<Integer, TCPConnectionThread> clientConnections = new HashMap<Integer, TCPConnectionThread>();
+	private void startTask(Event event){
 
 		RegistryRequestsTaskInitiate taskInitiate = (RegistryRequestsTaskInitiate) event;
-
-		for(RoutingEntry node : routingTable){
-			Socket socket = new Socket(node.getIpAddress(), node.getPortNum());
-			clientConnections.put(node.getNodeID(), new TCPConnectionThread(clientReceiver.getThreadGroup(), socket, clientReceiver));
-		}
-
 		int numPackets = taskInitiate.getNumPackets();
 
-		// Update the receiver with list of connections
-		clientReceiver.setRoutingTable(clientConnections);				
-
-		// If here, setup was successful, send success message to Registry
-		//System.out.println("Node (" + myID + ") starting task with " + numPackets + " packets");
+		// Status message variables
 		String statusMessage = "Setup successful";
-		Event setupStatus = ef.buildEvent(Protocol.NODE_REPORTS_OVERLAY_SETUP_STATUS, myID + ";" + statusMessage.length() + ";" + statusMessage);
-		this.sendToServer(setupStatus.getBytes());
+		int status = myID;
 
-		int payload;
-		int sink;
-		Random rand = new Random();
-
-		// Since this is the initial packet don't need to worry about
-		// hop-trace, set it empty to begin with
-		String hop = " ";
-		int hopLength = 0;
-
-		// Set/Reset the tracker variables
-		sendTracker = 0;
-		sendSummation = 0;
-
-		//System.out.println("Getting ready to loop for " + numPackets + " packets");
-
-		for(int i = 0; i<numPackets; ++i){
-
-			// Get payload and select node to send to
-			payload = getPayload();
-			sink = selectRandomNode(rand);
-			// Track the data for traffic summary
-			updateCounts(payload);
-
-			Event data = ef.buildEvent(Protocol.OVERLAY_NODE_SENDS_DATA, sink + ";" + myID + ";" + payload + ";" + hopLength + ";" + hop);
-
-			if(clientConnections.containsKey(sink)){
-				clientConnections.get(sink).sendToClient(data.getBytes());
-			}else{				
-				// Node not in list of connections, need to find nearest node
-				// Idea: take sink - nodeID, if negative, we passed the sink
-				// ignore it, else compare to min, if less set to min, continue
-				// After comparing all clientConnections end up with nearest node
-
-				int min = Integer.MAX_VALUE;
-				int compare;
-				int location = -1;
-
-				for (Integer key : clientConnections.keySet()) {
-					compare = sink - key;
-					if(compare < min && compare > 0){
-						min = compare;
-						location = key;
-					}
+		if(clientConnections == null || clientConnections.isEmpty()){
+			for(RoutingEntry node : routingTable){
+				Socket socket;
+				try {
+					socket = new Socket(node.getIpAddress(), node.getPortNum());
+					clientConnections.put(node.getNodeID(), new TCPConnectionThread(clientReceiver.getThreadGroup(), socket, clientReceiver));
+				} catch (UnknownHostException e) {
+					statusMessage = "Setup failed";
+					status = -1;
+					System.out.println("Error connecting to client, unknown host error occurred: ");
+					e.printStackTrace();
+				} catch (IOException e) {
+					statusMessage = "Setup failed";
+					status = -1;
+					System.out.println("Error connecting to client: ");
+					e.printStackTrace();
 				}
 
-				// If location is still -1, the destination node is behind us (looped around in the list)
-				// Need to determine based on Math.abs(a,b)
-				// Is there a better way to do this in a single loop iteration???
-
-				if(location == -1){
-					int max = Integer.MIN_VALUE;
-					for (Integer key : clientConnections.keySet()) {
-						compare = Math.abs(sink - key);
-						if(compare > max){
-							max = compare;
-							location = key;
-						}
-					}
-				}
-				if(clientConnections.get(location) != null)
-					clientConnections.get(location).sendToClient(data.getBytes());
-				else
-					System.out.println("Error, node not in list of neighbors.");
 			}
 		}
 
-		// If here, task finished
-		Event finishStatus = ef.buildEvent(Protocol.OVERLAY_NODE_REPORTS_TASK_FINISHED, myIPAddress + ";" + listenPort + ";" + myID);
-		this.sendToServer(finishStatus.getBytes());
+		// Update the receiver with list of connections
+		clientReceiver.setRoutingTable(clientConnections);					
+		Event setupStatus = ef.buildEvent(Protocol.NODE_REPORTS_OVERLAY_SETUP_STATUS, status + ";" + statusMessage.length() + ";" + statusMessage);
+
+		try {
+			this.sendToServer(setupStatus.getBytes());
+		} catch (IOException e) {
+			System.out.println("Error sending setup status to Registry: ");
+			e.printStackTrace();
+		}
+
+		// If status is -1 we had an error setting up connections, don't initiate task!
+		if(status != -1){
+			int payload;
+			int sink;
+			Random rand = new Random();
+
+			/*
+			 * Setting hop to source initially, specs say not to, but makes 
+			 * it easier to track packet from source to sink...
+			 * hopLength, however, is the actually number of intermediate hops
+			 * from source to sink
+			 */
+			String hop = "(SRC: " + myID + ")";
+			int hopLength = 0;
+
+			// Set/Reset the tracker variables
+			sendTracker = 0;
+			sendSummation = 0;
+
+			//System.out.println("Getting ready to loop for " + numPackets + " packets");
+
+			for(int i = 0; i<numPackets; ++i){
+
+				// Get payload and select node to send to
+				payload = getPayload();
+				sink = selectRandomNode(rand);
+				
+				// Track the data for traffic summary
+				updateCounts(payload);
+
+				Event data = ef.buildEvent(Protocol.OVERLAY_NODE_SENDS_DATA, sink + ";" + myID + ";" + payload + ";" + hopLength + ";" + hop);
+
+				if(clientConnections.containsKey(sink)){
+					try {
+						clientConnections.get(sink).sendToClient(data.getBytes());
+					} catch (IOException e) {
+						System.out.println("Error sending payload to client: ");
+						e.printStackTrace();
+					}
+				}else{				
+					// Node not in list of connections, need to find nearest node
+					// Idea: take sink - nodeID, if negative, we passed the sink
+					// ignore it, else compare to min, if less set to min, continue
+					// After comparing all clientConnections end up with nearest node
+
+					int min = Integer.MAX_VALUE;
+					int compare;
+					int location = -1;
+
+					for (Integer key : clientConnections.keySet()) {
+						compare = sink - key;
+						if(compare < min && compare > 0){
+							min = compare;
+							location = key;
+						}
+					}
+
+					// If location is still -1, the destination node is behind us (looped around in the list)
+					// Need to determine based on max(Math.abs(a,b))
+					// Is there a better way to do this in a single loop iteration???
+
+					if(location == -1){
+						int max = Integer.MIN_VALUE;
+						for (Integer key : clientConnections.keySet()) {
+							compare = Math.abs(sink - key);
+							if(compare > max){
+								max = compare;
+								location = key;
+							}
+						}
+					}
+					if(clientConnections.get(location) != null)
+						try {
+							clientConnections.get(location).sendToClient(data.getBytes());
+						} catch (IOException e) {
+							System.out.println("Error sending payload to client: ");
+							e.printStackTrace();
+						}
+					else
+						System.out.println("Error, node not in list of neighbors.");
+				}
+			}
+
+			// If here, task finished, notify Registry
+			Event finishStatus = ef.buildEvent(Protocol.OVERLAY_NODE_REPORTS_TASK_FINISHED, myIPAddress + ";" + listenPort + ";" + myID);
+			try {
+				this.sendToServer(finishStatus.getBytes());
+			} catch (IOException e) {
+				System.out.println("Error sending task complete status to Registry: ");
+				e.printStackTrace();
+			}
+		}else{
+			System.out.println("Error setting up connections with clients, unable to start task.");
+		}
 
 	}
 
@@ -339,6 +372,7 @@ public class MessagingNode extends TCPClient {
 		Random rand = new Random();		
 		return rand.nextInt();
 	}
+	// Update counters, ensuring concurrency
 	private synchronized void updateCounts(long payload){
 		sendSummation += payload;
 		sendTracker++;
@@ -397,6 +431,12 @@ public class MessagingNode extends TCPClient {
 	 */
 	private void getStats(){
 
+		try {
+			Thread.sleep(200);
+		} catch (InterruptedException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 		Event reportSummary = ef.buildEvent(Protocol.OVERLAY_NODE_REPORTS_TRAFFIC_SUMMARY, myID 
 				+ ";" + sendTracker + ";" + clientReceiver.getRelayTracker() + ";" + sendSummation 
 				+ ";" + clientReceiver.getReceiveTraker() + ";" + clientReceiver.getReceiveSummation());
@@ -447,8 +487,10 @@ public class MessagingNode extends TCPClient {
 		} catch (IOException e1) {
 			System.out.println("Error closing connection with server: ");
 			e1.printStackTrace();
+		} finally {
+			System.exit(1);
 		}
-		System.exit(1);
+		
 	}
 
 
@@ -498,13 +540,14 @@ public class MessagingNode extends TCPClient {
 				ovnData = new OverlayNodeSendsData(event.getBytes());
 
 				if(ovnData.getDestinationID() == myID){
-
+					
 					updateReceived(ovnData.getPayLoad());
+					ovnData.updateHopTrace(myID);
 
 					// Debugging
-					System.out.println("Received payload!");
-					System.out.println("Trace: packet trace length = " + ovnData.getHopTraceLength() + ", hop trace = " + ovnData.getHopTrace());
-					System.out.println();
+					//System.out.println("Received payload for node (" + myID + ")!!");
+					//System.out.println("Trace: num hops = " + ovnData.getHopTraceLength() + ", trace route = " + ovnData.getHopTrace());
+					//System.out.println();
 				}else{
 					forwardPacket(ovnData);
 				}
@@ -545,7 +588,7 @@ public class MessagingNode extends TCPClient {
 				}
 
 				// If location is still -1, the destination node is behind us (looped around in the list)
-				// Need to determine based on Math.abs(a,b)
+				// Need to determine based on max(Math.abs(a,b))
 				// Is there a better way to do this in a single loop iteration???
 
 				if(location == -1){

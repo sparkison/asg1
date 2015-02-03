@@ -130,7 +130,6 @@ public class Registry extends TCPServer{
 	private void nodeReportsFinish(Event event){
 		OverlayNodeReportsTaskFinished taskFinish = (OverlayNodeReportsTaskFinished) event;
 		nodesCompleted.add(taskFinish);
-
 		if(nodesCompleted.size() == registeredNodes.size()){
 			// All nodes have reported task finish
 			requestSummary();
@@ -282,6 +281,7 @@ public class Registry extends TCPServer{
 					e.printStackTrace();
 				}
 			}
+					
 		}
 
 	}
@@ -321,6 +321,9 @@ public class Registry extends TCPServer{
 					e1.printStackTrace();
 				}
 			}
+			
+			System.out.println("Overlay setup complete with NR " + NR);
+			
 		}else{
 			System.out.println("Unable to setup overlay, you have " + registeredNodes.size() + " node(s) registerted, need a minimum of two.");
 		}
