@@ -23,6 +23,7 @@ public class TCPConnectionThread extends Thread {
 	private DataInputStream din;
 	private DataOutputStream dout;
 	private boolean iAmListening = false;
+	private HashMap savedInfo = new HashMap(5);
 
 	// Constructor **************
 	public TCPConnectionThread(ThreadGroup group, Socket clientSocket, TCPServer server) throws IOException {
@@ -80,6 +81,25 @@ public class TCPConnectionThread extends Thread {
 			// Hook for TCPServer to let it know we've disconnected 
 			server.clientDisconnected(this);
 		}
+	}
+
+	/**
+	 * For setting extra data relevant to this client
+	 * Idea: use to save packet sent, received, etc.
+	 * @param String infoType
+	 * @param Object info
+	 */
+	@SuppressWarnings("unchecked")
+	public void setInfo(String infoType, Object info){
+		savedInfo.put(infoType, info);
+	}
+
+	/**
+	 * For getting extra data relevant to this client
+	 * @param String infoType
+	 */
+	public Object getInfo(String infoType){
+		return savedInfo.get(infoType);
 	}
 
 	/**

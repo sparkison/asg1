@@ -207,6 +207,7 @@ public class Registry extends TCPServer{
 		Event registrationStatus = ef.buildEvent(Protocol.REGISTRY_REPORTS_REGISTRATION_STATUS, status + ";" + message.length() + ";" + message);
 
 		try {
+			client.setInfo("nodeID", nodeID);
 			client.sendToClient(registrationStatus.getBytes());
 		} catch (IOException exc) {
 			System.out.println("Error sending data to client: ");
