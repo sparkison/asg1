@@ -6,8 +6,6 @@
 
 package cs455.overlay.node;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,7 +28,7 @@ import cs455.overlay.wireformats.OverlayNodeSendsRegistration;
 import cs455.overlay.wireformats.Protocol;
 
 
-public class Registry extends TCPServer implements Node{
+public class Registry extends TCPServer{
 
 	// Instance variables **************
 	/*
@@ -75,26 +73,6 @@ public class Registry extends TCPServer implements Node{
 
 
 	}// END main **************
-
-	/**
-	 * Get the type based on byte[] passed
-	 * @param data
-	 * @return int
-	 */
-	private int getType(byte[] data){
-		ByteArrayInputStream baInputStream = new ByteArrayInputStream(data);
-		DataInputStream din = new DataInputStream(baInputStream);
-		int type = -1;
-		try {
-			type = din.readInt();
-			din.close();
-			baInputStream.close();
-		} catch (IOException e) {
-			System.out.println("Error getting data type: ");
-			e.printStackTrace();
-		}
-		return type;
-	} // END getType **************
 
 	/********************************************
 	 * Superclass method
@@ -423,30 +401,5 @@ public class Registry extends TCPServer implements Node{
 
 
 	}
-
-	/**
-	 * Handles receiving messages from Client
-	 * @return void
-	 */
-	@Override
-	protected void messageFromClient(byte[] data, TCPConnectionThread client) {
-
-		// Debugging
-		//		String msg = "";
-		//		try {
-		//			msg = new String(data, "UTF-8");
-		//		} catch (UnsupportedEncodingException e1) {
-		//			e1.printStackTrace();
-		//		}
-		//		System.out.println(msg);
-
-		// Determine the type of the incoming data
-		int type = getType(data);
-		// Pass it on to the event handler
-		Event e = ef.getEvent(type, data);
-		if(e != null)
-			onEvent(e,client);
-
-	} // END handleMessageFromClient **************
 
 } // ************** END Registry class **************

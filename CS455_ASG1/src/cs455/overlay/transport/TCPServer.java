@@ -12,6 +12,9 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import cs455.overlay.wireformats.Event;
+import cs455.overlay.wireformats.EventFactory;
+
 
 @SuppressWarnings("unused")
 public abstract class TCPServer implements Runnable{
@@ -24,6 +27,7 @@ public abstract class TCPServer implements Runnable{
     private int backlog = 1000;
     //private ThreadGroup clientThreadGroup;
     private boolean iAmListening = true;
+    private EventFactory ef = EventFactory.getInstance();
 
     // Constructor **************
     public TCPServer(int port){
@@ -232,11 +236,11 @@ public abstract class TCPServer implements Runnable{
      * @param data
      * @param client
      */
-    protected abstract void messageFromClient(byte[] data, TCPConnectionThread client);
-
+    protected abstract void onEvent(Event event, TCPConnectionThread client);
 
     final synchronized void receiveMessageFromClient(byte[] data, TCPConnectionThread client){
-        this.messageFromClient(data, client);
+    	Event event = ef.getEvent(data);
+        onEvent(event, client);
     }
 
 }// ************** END TCPServer class **************

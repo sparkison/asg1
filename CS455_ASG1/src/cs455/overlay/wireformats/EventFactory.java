@@ -6,6 +6,8 @@
 
 package cs455.overlay.wireformats;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
 
 public class EventFactory {
@@ -175,8 +177,10 @@ public class EventFactory {
 	 * 
 	 * @return Event
 	 */
-	public Event getEvent(int type, byte[] components) {
+	public Event getEvent(byte[] components) {
 
+		int type = getType(components);
+		
 		switch (type) {
 
 		case Protocol.NODE_REPORTS_OVERLAY_SETUP_STATUS:
@@ -274,7 +278,32 @@ public class EventFactory {
 		return null;
 	}
 
+	
+	/********************************************
+	 ****************** HELPERS *****************
+	 ********************************************/
+	
 
+	/**
+	 * Get the type based on byte[] passed
+	 * @param data
+	 * @return int
+	 */
+	private int getType(byte[] data){
+		ByteArrayInputStream baInputStream = new ByteArrayInputStream(data);
+		DataInputStream din = new DataInputStream(baInputStream);
+		int type = -1;
+		try {
+			type = din.readInt();
+			din.close();
+			baInputStream.close();
+		} catch (IOException e) {
+			System.out.println("Error getting data type: ");
+			e.printStackTrace();
+		}
+		return type;
+	}// END getType **************
+	
 	/**
 	 * Gets the string from the getEvent method Delimited by ';'
 	 * 

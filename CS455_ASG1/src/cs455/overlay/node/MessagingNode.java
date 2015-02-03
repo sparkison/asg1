@@ -31,7 +31,7 @@ import cs455.overlay.wireformats.RegistryRequestsTaskInitiate;
 import cs455.overlay.wireformats.RegistrySendsNodeManifest;
 
 
-public class MessagingNode extends TCPClient implements Node {
+public class MessagingNode extends TCPClient {
 
 	// Instance variables **************
 	private	EventFactory ef = EventFactory.getInstance();
@@ -130,59 +130,33 @@ public class MessagingNode extends TCPClient implements Node {
 
 	}// END initilizeReceiver **************
 
-	/**
-	 * Get the type based on byte[] passed
-	 * @param data
-	 * @return int
-	 */
-	private int getType(byte[] data){
-		ByteArrayInputStream baInputStream = new ByteArrayInputStream(data);
-		DataInputStream din = new DataInputStream(baInputStream);
-		int type = -1;
-		try {
-			type = din.readInt();
-			din.close();
-			baInputStream.close();
-		} catch (IOException e) {
-			System.out.println("Error getting data type: ");
-			e.printStackTrace();
-		}
-		return type;
-	}// END getType **************
-
-	/**
-	 * @param Event, TCPConnection
-	 */
-	public void onEvent(Event e, TCPConnectionThread client){} // Not used
-
 	/********************************************
 	 * Overloaded method
-	 * Don't need TCPConnection since we're
 	 * dealing with the server
 	 * @param Event
 	 ********************************************/
-	public void onEvent(Event e){
+	public void onEvent(Event event){
 
 		// System.out.println("New event received from Server:\n" + e + "\n");
 
-		switch (e.getType()){
+		switch (event.getType()){
 
 		case Protocol.REGISTRY_REPORTS_REGISTRATION_STATUS:
-			registerStatusEvent(e);
+			registerStatusEvent(event);
 			break;
 
 		case Protocol.REGISTRY_REPORTS_DEREGISTRATION_STATUS:
 			System.out.println();
-			deregisterStatusEvent(e);
+			deregisterStatusEvent(event);
 			break;
 
 		case Protocol.REGISTRY_SENDS_NODE_MANIFEST:
-			setupRoutingTable(e);
+			setupRoutingTable(event);
 			break;
 
 		case Protocol.REGISTRY_REQUESTS_TASK_INITIATE:
 			try {
-				startTask(e);
+				startTask(event);
 			} catch (UnknownHostException e1) {
 				System.out.println("Unknown host error: ");
 				e1.printStackTrace();
@@ -294,19 +268,18 @@ public class MessagingNode extends TCPClient implements Node {
 		int hopLength = 0;
 
 		// Set/Reset the tracker variables
-		sendTracker = 1;
+		sendTracker = 0;
 		sendSummation = 0;
 
 		//System.out.println("Getting ready to loop for " + numPackets + " packets");
 
 		for(int i = 0; i<numPackets; ++i){
-
+			
 			// Get payload and select node to send to
 			payload = getPayload();
 			sink = selectRandomNode(rand);
 			// Track the data for traffic summary
-			sendSummation += payload;
-			sendTracker += i;
+			updateCounts(payload);
 
 			Event data = ef.buildEvent(Protocol.OVERLAY_NODE_SENDS_DATA, sink + ";" + myID + ";" + payload + ";" + hopLength + ";" + hop);
 
@@ -371,6 +344,10 @@ public class MessagingNode extends TCPClient implements Node {
 		Random rand = new Random();		
 		return rand.nextInt();
 	}
+	private synchronized void updateCounts(long payload){
+		sendSummation += payload;
+		sendTracker++;
+	}
 
 	/*
 	 * SEND TO SERVER
@@ -431,31 +408,6 @@ public class MessagingNode extends TCPClient implements Node {
 			e.printStackTrace();
 		}
 	}
-
-	/**
-	 * Handles receiving messages from Server
-	 * @return void
-	 */
-	@Override
-	protected void messageFromServer(byte[] data) {
-
-		// Debugging
-		//		String msg = "";
-		//		try {
-		//			msg = new String(data, "UTF-8");
-		//		} catch (UnsupportedEncodingException e1) {
-		//			e1.printStackTrace();
-		//		}
-		//		System.out.println(msg);
-
-		// Determine the type of the incoming data
-		int type = getType(data);
-		// Pass it on to the event handler
-		Event e = ef.getEvent(type, data);
-		if(e != null)
-			onEvent(e);
-
-	}// END handleMessageFromServer **************
 
 	/**
 	 * Send stats to Registry
@@ -528,7 +480,7 @@ public class MessagingNode extends TCPClient implements Node {
 	 *
 	 ********************************************/
 
-	private class ClientReceiver extends TCPServer{
+	private class ClientReceiver extends TCPServer {
 
 		// Instance variables **************
 		private int myID;
@@ -554,19 +506,19 @@ public class MessagingNode extends TCPClient implements Node {
 		}
 
 		@Override
-		protected void messageFromClient(byte[] data, TCPConnectionThread client) {
+		public void onEvent(Event event, TCPConnectionThread client) {
 
-			receiveTraker++;
 			OverlayNodeSendsData ovnData;
 
 			try {
-				ovnData = new OverlayNodeSendsData(data);
+				ovnData = new OverlayNodeSendsData(event.getBytes());
 
 				if(ovnData.getDestinationID() == myID){
-					receiveSummation += ovnData.getPayLoad();
+					updateReceived(ovnData.getPayLoad());
 					// Debugging
 					System.out.println("Received payload!");
 					System.out.println("Trace: packet trace length = " + ovnData.getHopTraceLength() + ", hop trace = " + ovnData.getHopTrace());
+					System.out.println();
 				}else{
 					forwardPacket(ovnData);
 				}
@@ -580,7 +532,7 @@ public class MessagingNode extends TCPClient implements Node {
 
 		private void forwardPacket(OverlayNodeSendsData ovnData) throws IOException{
 			
-			relayTracker++;
+			updateRelay();
 			int sink = ovnData.getDestinationID();
 			
 			// Update the dissemination for this packet
@@ -626,6 +578,15 @@ public class MessagingNode extends TCPClient implements Node {
 				else
 					System.out.println("Error, node not in list of neighbors.");
 			}
+		}
+		
+		private synchronized void updateReceived(long payload){
+			receiveSummation += payload;
+			receiveTraker++;
+		}
+		
+		private synchronized void updateRelay(){
+			relayTracker++;
 		}
 
 		/**

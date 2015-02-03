@@ -13,6 +13,9 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 
+import cs455.overlay.wireformats.Event;
+import cs455.overlay.wireformats.EventFactory;
+
 
 public abstract class TCPClient implements Runnable{
 
@@ -24,6 +27,7 @@ public abstract class TCPClient implements Runnable{
     private boolean readyToStop = false;
     private String host;
     private int port;
+    private EventFactory ef = EventFactory.getInstance();
 
     // Constructor **************
     public TCPClient(String host, int port) {
@@ -136,7 +140,8 @@ public abstract class TCPClient implements Runnable{
                 dataLength = input.readInt();
                 data = new byte[dataLength];
                 input.readFully(data, 0, dataLength);
-                messageFromServer(data);
+                Event event = ef.getEvent(data);
+                onEvent(event);
             }
         } catch (Exception exception) {
             if (!readyToStop) {
@@ -171,7 +176,7 @@ public abstract class TCPClient implements Runnable{
      * @param data
      * @param client
      */
-    protected abstract void messageFromServer(byte[] data);
+    protected abstract void onEvent(Event event);
 
 
     private void closeAll() throws IOException {
