@@ -101,12 +101,7 @@ public class InteractiveCommandParser{
 				System.out.println("Incorrect format for start command, please use \"start [number-of-messages]\"");
 			}
 
-		}
-		// For testing message passing
-		//		else if(message.equalsIgnoreCase("bunk")){
-		//			registeryNode.sendBunk();
-		//		}
-		else{
+		}else{
 			System.out.println("Command not recognized.");
 			System.out.println();
 		}
@@ -123,12 +118,7 @@ public class InteractiveCommandParser{
 			messageNode.sendDeregistration();
 		}else if(message.startsWith("list-routing")){
 			messageNode.listRoutingTable();
-		}
-		// For testing message passing
-		//		else if(message.equalsIgnoreCase("bunk")){
-		//			messageNode.sendBunk();
-		//		}
-		else{
+		}else{
 			System.out.println("Command not recognized.");
 		}
 	}

@@ -12,9 +12,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.HashMap;
 
-@SuppressWarnings("rawtypes")
 public class TCPConnectionThread extends Thread {
 
 	// Instance variables **************

@@ -19,6 +19,7 @@ import cs455.overlay.routing.RoutingTable;
 import cs455.overlay.transport.TCPConnectionThread;
 import cs455.overlay.transport.TCPServer;
 import cs455.overlay.util.InteractiveCommandParser;
+import cs455.overlay.util.StatisticsCollectorAndDisplay;
 import cs455.overlay.wireformats.Event;
 import cs455.overlay.wireformats.EventFactory;
 import cs455.overlay.wireformats.NodeReportsOverlaySetupStatus;
@@ -31,16 +32,20 @@ import cs455.overlay.wireformats.Protocol;
 public class Registry extends TCPServer{
 
 	// Instance variables **************
+	private StatisticsCollectorAndDisplay statistics = new StatisticsCollectorAndDisplay();
+	private EventFactory ef = EventFactory.getInstance();
 	/*
 	 * Map to hold registered nodes. Object[0] is the OverlayRegisrty, Object[1] is the TCPConnection
+	 * (could have used TCPConnectionCache, but already implemented this...)
 	 */
 	private Map<Integer, Object[]> registeredNodes = new HashMap<Integer, Object[]>();
-	private EventFactory ef = EventFactory.getInstance();
 	private List<Event> nodesCompleted = new ArrayList<Event>();
+	private List<Event> nodesSummary = new ArrayList<Event>();
 	private RoutingTable routingTable;
-	// Set routing table size, default to 3 if not specified
+	
+	// Set routing table size (default is 3 if not specified)
 	private int NR = 3;
-	// Range of valid ID's for client Nodes
+	// Range of valid ID's for client Nodes (0[inclusive] to 127[exclusive])
 	static final int MIN = 0;
 	static final int MAX = 127;
 
@@ -75,28 +80,35 @@ public class Registry extends TCPServer{
 	}// END main **************
 
 	/********************************************
-	 * Superclass method
+	 * Override method
 	 * Used to handle events from Clients
+	 * Added extra parameter (TCPConnectionThread)
+	 * to make response messages easier to deal with
+	 * 
 	 * @return void
 	 ********************************************/
-	public void onEvent(Event e, TCPConnectionThread client){
+	public void onEvent(Event event, TCPConnectionThread client){
 
-		switch (e.getType()){
+		switch (event.getType()){
 
 		case Protocol.OVERLAY_NODE_SENDS_REGISTRATION:
-			registerNode(e, client);
+			registerNode(event, client);
 			break;
 
 		case Protocol.OVERLAY_NODE_SENDS_DEREGISTRATION:
-			deregisterNode(e, client);
+			deRegisterNode(event, client);
 			break;
 
 		case Protocol.NODE_REPORTS_OVERLAY_SETUP_STATUS:
-			getSetupStatus(e);
+			getSetupStatus(event);
 			break;
 
 		case Protocol.OVERLAY_NODE_REPORTS_TASK_FINISHED:
-			nodeReportsFinish(e);
+			nodeReportsFinish(event);
+			break;
+			
+		case Protocol.OVERLAY_NODE_REPORTS_TRAFFIC_SUMMARY:
+			nodeReportsSummary(event);
 			break;
 
 		default:
@@ -115,20 +127,27 @@ public class Registry extends TCPServer{
 	 * RECEIVE FROM CLIENT
 	 */
 
-	private void nodeReportsFinish(Event e){
-
-		OverlayNodeReportsTaskFinished taskFinish = (OverlayNodeReportsTaskFinished) e;
+	private void nodeReportsFinish(Event event){
+		OverlayNodeReportsTaskFinished taskFinish = (OverlayNodeReportsTaskFinished) event;
 		nodesCompleted.add(taskFinish);
+
 		if(nodesCompleted.size() == registeredNodes.size()){
 			// All nodes have reported task finish
 			requestSummary();
 		}
-
 	}
 
-	private void getSetupStatus(Event e){
+	private void nodeReportsSummary(Event event){
+		nodesSummary.add(event);
+		if(nodesSummary.size() == registeredNodes.size()){
+			// All nodes have reported task finish
+			statistics.sendNodeData(nodesSummary);
+		}
+	}
+	
+	private void getSetupStatus(Event event){
 
-		NodeReportsOverlaySetupStatus nodeSetupStatus = (NodeReportsOverlaySetupStatus) e;
+		NodeReportsOverlaySetupStatus nodeSetupStatus = (NodeReportsOverlaySetupStatus) event;
 		int status = nodeSetupStatus.getStatus();
 
 		if(status != -1){
@@ -140,16 +159,16 @@ public class Registry extends TCPServer{
 		}
 	}
 
-	private void deregisterNode(Event e, TCPConnectionThread client){
+	private void deRegisterNode(Event event, TCPConnectionThread client){
 		int status = -1;
-		OverlayNodeSendsDeregistration deregister = (OverlayNodeSendsDeregistration) e;
+		OverlayNodeSendsDeregistration deregister = (OverlayNodeSendsDeregistration) event;
 		if(registeredNodes.remove(deregister.getNodeID()) != null){
 			status = 1;
 		}
 		Event deregisterStatus = ef.buildEvent(Protocol.REGISTRY_REPORTS_DEREGISTRATION_STATUS, "" + status);
 		//System.out.println("Node " + deregister.getNodeID() + " deregistered with status " + status);
 		try {
-			// Send deregistration status back to client
+			// Send deRegistration status back to client
 			client.sendToClient(deregisterStatus.getBytes());
 			// Routing table is now void, need to rebuild
 			routingTable.clear();
@@ -159,11 +178,12 @@ public class Registry extends TCPServer{
 		}
 	}
 
-	private void registerNode(Event e, TCPConnectionThread client){
+	private void registerNode(Event event, TCPConnectionThread client){
+		
 		/*
 		 * Register Client node
 		 * Attempts to register client node
-		 * Gets random (unique) identifer
+		 * Gets random (unique) identifier
 		 * Add to registeredNodes
 		 * If already registered, return error
 		 * message to client
@@ -177,7 +197,7 @@ public class Registry extends TCPServer{
 		String compare = client.getInetAddress().toString().split("/")[1];
 
 		// Get object so we can see the data
-		OverlayNodeSendsRegistration clientNode = (OverlayNodeSendsRegistration) e;
+		OverlayNodeSendsRegistration clientNode = (OverlayNodeSendsRegistration) event;
 
 		// Get the random ID for this Node
 		Integer nodeID = getNodeID();
@@ -244,7 +264,7 @@ public class Registry extends TCPServer{
 
 		if(!routingTable.isEmpty()){
 
-			System.out.println("Starting task with " + numMessages + " packets...");
+			System.out.println("Starting task with " + numMessages + " packets...\n");
 
 			Event intiateTask = ef.buildEvent(Protocol.REGISTRY_REQUESTS_TASK_INITIATE, "" + numMessages);
 
@@ -363,6 +383,10 @@ public class Registry extends TCPServer{
 		return NR;
 	}
 
+	/**
+	 * Print each nodes routing table
+	 * Called by the command parser
+	 */
 	public void listRoutingTables(){
 		if(routingTable != null){
 			System.out.println(routingTable.getRoutingTables());
@@ -371,6 +395,7 @@ public class Registry extends TCPServer{
 		}
 	}
 
+	// Hook methods for debugging connection issues
 	protected void clientDisconnected(TCPConnectionThread client) {
 		// Client disconnected, remove them from list of registered nodes
 		registeredNodes.remove(client.getThreadID());
@@ -383,23 +408,6 @@ public class Registry extends TCPServer{
 		registeredNodes.remove(client.getThreadID());
 		// Routing table is now void, need to rebuild
 		routingTable.clear();
-	}
-
-	/**
-	 * Method for testing connection and message passing
-	 */
-	public void sendBunk(){
-		String bunk = "SERVER> bunk!";
-
-		for (Integer key : registeredNodes.keySet()) {
-			try {
-				( (TCPConnectionThread) registeredNodes.get(key)[1] ).sendToClient(bunk.getBytes());
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-
-
 	}
 
 } // ************** END Registry class **************

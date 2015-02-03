@@ -298,7 +298,7 @@ public class EventFactory {
 			din.close();
 			baInputStream.close();
 		} catch (IOException e) {
-			System.out.println("Error getting data type: ");
+			System.out.println("EventFactory - error getting data type: ");
 			e.printStackTrace();
 		}
 		return type;

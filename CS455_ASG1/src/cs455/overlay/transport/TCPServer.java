@@ -123,17 +123,12 @@ public abstract class TCPServer implements Runnable{
 	}
 
 	/**
-	 * A count of how many clients are connected
-	 * to this TCPServer
-	 * @return int
-	 */
-	final public int getNumberOfClients(){
-		return clientThreadGroup.activeCount();
-	}
-
-	/**
 	 * GETTERS **************
 	 */
+
+	final public int getNumberOfClients(){
+		return clientThreadGroup.activeCount();
+	}	
 
 	final public ThreadGroup getThreadGroup(){
 		return clientThreadGroup;

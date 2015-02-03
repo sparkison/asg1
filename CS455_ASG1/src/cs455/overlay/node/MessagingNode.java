@@ -131,9 +131,10 @@ public class MessagingNode extends TCPClient {
 	}// END initilizeReceiver **************
 
 	/********************************************
-	 * Overloaded method
-	 * dealing with the server
-	 * @param Event
+	 * Override method
+	 * Used to handle events from Registry
+	 * 
+	 * @return void
 	 ********************************************/
 	public void onEvent(Event event){
 
@@ -191,8 +192,8 @@ public class MessagingNode extends TCPClient {
 
 	// Get registration status
 	// Called within class
-	private synchronized void registerStatusEvent(Event e){
-		RegistryReportsRegistrationStatus registerStatus = (RegistryReportsRegistrationStatus) e;
+	private void registerStatusEvent(Event event){
+		RegistryReportsRegistrationStatus registerStatus = (RegistryReportsRegistrationStatus) event;
 		if(registerStatus.getStatus() != -1){
 
 			// Success!
@@ -210,9 +211,9 @@ public class MessagingNode extends TCPClient {
 
 	// Get deRegistration status
 	// Called within class
-	private void deregisterStatusEvent(Event e){
+	private void deregisterStatusEvent(Event event){
 
-		RegistryReportsDeregistrationStatus deregister = (RegistryReportsDeregistrationStatus) e;
+		RegistryReportsDeregistrationStatus deregister = (RegistryReportsDeregistrationStatus) event;
 
 		if(deregister.getDeregistrationStatus() == 1){
 			System.out.println("Node " + myID + " successfully deregistered.");
@@ -224,9 +225,9 @@ public class MessagingNode extends TCPClient {
 
 	// Get routing table
 	// Called within class
-	private void setupRoutingTable(Event e){
+	private void setupRoutingTable(Event event){
 
-		RegistrySendsNodeManifest nodeManifest = (RegistrySendsNodeManifest) e;
+		RegistrySendsNodeManifest nodeManifest = (RegistrySendsNodeManifest) event;
 
 		routingTable = nodeManifest.getRoutingEntries();
 		nodeList = nodeManifest.getAllNodes();
@@ -236,11 +237,11 @@ public class MessagingNode extends TCPClient {
 
 	// Attempt to initiate task
 	// Called within class
-	private synchronized void startTask(Event e) throws UnknownHostException, IOException{
+	private void startTask(Event event) throws UnknownHostException, IOException{
 
 		Map<Integer, TCPConnectionThread> clientConnections = new HashMap<Integer, TCPConnectionThread>();
 
-		RegistryRequestsTaskInitiate taskInitiate = (RegistryRequestsTaskInitiate) e;
+		RegistryRequestsTaskInitiate taskInitiate = (RegistryRequestsTaskInitiate) event;
 
 		for(RoutingEntry node : routingTable){
 			Socket socket = new Socket(node.getIpAddress(), node.getPortNum());
@@ -398,31 +399,19 @@ public class MessagingNode extends TCPClient {
 	}
 
 	/**
-	 * Method for testing connection and message passing
-	 */
-	public void sendBunk(){
-		String bunk = "CLIENT("+myID+")> bunk!";
-		try {
-			this.sendToServer(bunk.getBytes());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
-	/**
-	 * Send stats to Registry
+	 * Send statistics summary to Registry
 	 */
 	private void getStats(){
 
-
-
-
-
-		// ************** TO-DO **************
-
-
-
-
+		Event reportSummary = ef.buildEvent(Protocol.OVERLAY_NODE_REPORTS_TRAFFIC_SUMMARY, myID 
+				+ ";" + sendTracker + ";" + clientReceiver.getRelayTracker() + ";" + sendSummation 
+				+ ";" + clientReceiver.getReceiveTraker() + ";" + clientReceiver.getReceiveSummation());
+		try {
+			this.sendToServer(reportSummary.getBytes());
+		} catch (IOException e) {
+			System.out.println("Error sending report summary to Registry: ");
+			e.printStackTrace();
+		}
 
 	}
 
@@ -505,7 +494,10 @@ public class MessagingNode extends TCPClient {
 
 		@Override
 		public void onEvent(Event event, TCPConnectionThread client) {
-
+			handleMessage(event);
+		}
+		
+		final void handleMessage(Event event){
 			OverlayNodeSendsData ovnData;
 
 			try {
@@ -527,10 +519,9 @@ public class MessagingNode extends TCPClient {
 				System.out.println("Error getting data: ");
 				e.printStackTrace();
 			}
-
 		}
 
-		private void forwardPacket(OverlayNodeSendsData ovnData) throws IOException{
+		final void forwardPacket(OverlayNodeSendsData ovnData) throws IOException{
 			
 			updateRelay();
 			int sink = ovnData.getDestinationID();
