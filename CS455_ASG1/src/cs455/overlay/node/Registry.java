@@ -164,7 +164,7 @@ public class Registry extends TCPServer{
 		}else{
 			// Setup failed
 			// Routing table is now void, need to rebuild
-			routingTable.clear();
+			resetRoutingTable();
 		}
 	}
 
@@ -180,7 +180,7 @@ public class Registry extends TCPServer{
 			// Send deRegistration status back to client
 			client.sendToClient(deregisterStatus.getBytes());
 			// Routing table is now void, need to rebuild
-			routingTable.clear();
+			resetRoutingTable();
 		} catch (IOException e1) {
 			System.out.println("Error sending deregistration status to client: ");
 			e1.printStackTrace();
@@ -408,20 +408,26 @@ public class Registry extends TCPServer{
 			System.out.println("Routing table not yet setup. Please issue the \"setup-overlay [num-routing-table-entries]\" command first.");
 		}
 	}
+	
+	// Clear the routing table
+	private void resetRoutingTable(){
+		if(routingTable != null)
+			routingTable.clear();
+	}
 
 	// Hook methods for debugging connection issues
 	protected void clientDisconnected(TCPConnectionThread client) {
 		// Client disconnected, remove them from list of registered nodes
 		registeredNodes.remove(client.getThreadID());
 		// Routing table is now void, need to rebuild
-		routingTable.clear();
+		resetRoutingTable();
 	}
 
 	protected void clientException(TCPConnectionThread client, Throwable exception) {
 		// Client had connection exception, remove them from list of registered nodes
 		registeredNodes.remove(client.getThreadID());
 		// Routing table is now void, need to rebuild
-		routingTable.clear();
+		resetRoutingTable();
 	}
 
 } // ************** END Registry class **************

@@ -186,7 +186,8 @@ public class MessagingNode extends TCPClient {
 
 		} else {
 			// Unable to register
-			System.out.println("Registration error");
+			System.out.println("Registration error!");
+			System.out.println(registerStatus.getMessage());
 			close();
 		}
 
