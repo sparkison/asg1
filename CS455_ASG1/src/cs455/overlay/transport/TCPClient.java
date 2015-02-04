@@ -126,7 +126,7 @@ public abstract class TCPClient implements Runnable{
 	}
 
 	final public InetAddress getInetAddress(){
-		return clientSocket.getInetAddress();
+		return clientSocket.getLocalAddress();
 	}
 
 	/**
