@@ -50,6 +50,7 @@ public abstract class TCPServer implements Runnable{
 				}
 			}
 			iAmListening = true;
+			// Spawn a thread for self, and start it
 			connectionListener = new Thread(this);
 			connectionListener.start();
 		}
@@ -61,38 +62,6 @@ public abstract class TCPServer implements Runnable{
 	 */
 	final public void stopListening(){
 		iAmListening = false;
-	}
-
-	/**
-	 * Close the registry down
-	 * @throws IOException
-	 * @return void
-	 */
-	final synchronized public void close() throws IOException{
-		if (serverSocket != null) {
-			stopListening();
-
-			try{
-				serverSocket.close();
-			}
-			finally{
-				// Shut it down!
-				// Close sockets to connected clients...
-				Thread[] clientThreadList = getConnectedClients();
-
-				for(Thread client : clientThreadList){
-					try{
-						((TCPConnectionThread)client).close();
-					}catch(Exception exc) {// Ignore all exceptions when closing clients.
-						System.out.println("Error closing client connection: ");
-						exc.printStackTrace();
-					}
-				}
-				serverSocket = null;
-				registryHasClosed();
-			}
-		}
-
 	}
 
 	/**
@@ -162,6 +131,38 @@ public abstract class TCPServer implements Runnable{
 		}
 	}
 
+	/**
+	 * Close the registry down
+	 * @throws IOException
+	 * @return void
+	 */
+	final synchronized public void close() throws IOException{
+		if (serverSocket != null) {
+			stopListening();
+
+			try{
+				serverSocket.close();
+			}
+			finally{
+				// Shut it down!
+				// Close sockets to connected clients...
+				Thread[] clientThreadList = getConnectedClients();
+
+				for(Thread client : clientThreadList){
+					try{
+						((TCPConnectionThread)client).close();
+					}catch(Exception exc) {// Ignore all exceptions when closing clients.
+						System.out.println("Error closing client connection: ");
+						exc.printStackTrace();
+					}
+				}
+				serverSocket = null;
+				registryHasClosed();
+			}
+		}
+
+	}
+	
 	/**
 	 * HOOK methods for debugging
 	 */
