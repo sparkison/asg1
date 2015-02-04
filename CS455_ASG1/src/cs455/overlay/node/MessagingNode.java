@@ -296,7 +296,7 @@ public class MessagingNode extends TCPClient {
 
 				if(clientConnections.containsKey(sink)){
 					try {
-						clientConnections.get(sink).sendToClient(data.getBytes());
+						clientConnections.get(sink).sendFromClientToClient(data.getBytes());
 					} catch (IOException e) {
 						System.out.println("Error sending payload to client: ");
 						e.printStackTrace();
@@ -335,7 +335,7 @@ public class MessagingNode extends TCPClient {
 					}
 					if(clientConnections.get(location) != null)
 						try {
-							clientConnections.get(location).sendToClient(data.getBytes());
+							clientConnections.get(location).sendFromClientToClient(data.getBytes());
 						} catch (IOException e) {
 							System.out.println("Error sending payload to client: ");
 							e.printStackTrace();
@@ -510,7 +510,7 @@ public class MessagingNode extends TCPClient {
 		private Map<Integer, TCPConnectionThread> clientConnections;
 
 		public ClientReceiver(int port) {
-			super(port);
+			super(port, "MessagingClient threads");
 		}
 
 		protected void clientDisconnected(TCPConnectionThread client) {
@@ -536,9 +536,9 @@ public class MessagingNode extends TCPClient {
 					ovnData.updateHopTrace(myID);
 
 					// Debugging
-					//System.out.println("Received payload for node (" + myID + ")!!");
-					//System.out.println("Trace: num hops = " + ovnData.getHopTraceLength() + ", trace route = " + ovnData.getHopTrace());
-					//System.out.println();
+					System.out.println("Received payload for node (" + myID + ")!!");
+					System.out.println("Trace: num hops = " + ovnData.getHopTraceLength() + ", trace route = " + ovnData.getHopTrace());
+					System.out.println();
 				}else{
 					forwardPacket(ovnData);
 				}
@@ -559,7 +559,7 @@ public class MessagingNode extends TCPClient {
 			ovnData.updateHopTrace(myID);
 
 			if(clientConnections.containsKey(sink)){
-				clientConnections.get(sink).sendToClient(ovnData.getBytes());
+				clientConnections.get(sink).sendFromClientToClient(ovnData.getBytes());
 			}else{				
 				// Node not in list of connections, need to find nearest node
 				// Idea: take sink - nodeID, if negative, we passed the sink
@@ -593,7 +593,7 @@ public class MessagingNode extends TCPClient {
 					}
 				}
 				if(clientConnections.get(location) != null)
-					clientConnections.get(location).sendToClient(ovnData.getBytes());
+					clientConnections.get(location).sendFromClientToClient(ovnData.getBytes());
 				else
 					System.out.println("Error, node not in list of neighbors.");
 			}

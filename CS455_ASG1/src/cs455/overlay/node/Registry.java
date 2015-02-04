@@ -51,7 +51,7 @@ public class Registry extends TCPServer{
 
 	// Superclass constructor **************
 	public Registry(int port) {
-		super(port);
+		super(port, "Registry threads");
 	}
 
 
@@ -180,7 +180,7 @@ public class Registry extends TCPServer{
 		//System.out.println("Node " + deregister.getNodeID() + " deregistered with status " + status);
 		try {
 			// Send deRegistration status back to client
-			client.sendToClient(deregisterStatus.getBytes());
+			client.sendFromRegistryToClient(deregisterStatus.getBytes());
 			// Routing table is now void, need to rebuild
 			resetRoutingTable();
 		} catch (IOException e1) {
@@ -239,7 +239,7 @@ public class Registry extends TCPServer{
 
 		try {
 			client.setThreadID(nodeID);
-			client.sendToClient(registrationStatus.getBytes());
+			client.sendFromRegistryToClient(registrationStatus.getBytes());
 		} catch (IOException exc) {
 			System.out.println("Error sending data to client: ");
 			exc.printStackTrace();
@@ -262,7 +262,7 @@ public class Registry extends TCPServer{
 		Event requestSummary = ef.buildEvent(Protocol.REGISTRY_REQUESTS_TRAFFIC_SUMMARY, "");
 		for (Integer key : registeredNodes.keySet()) {
 			try {
-				( (TCPConnectionThread) registeredNodes.get(key)[1] ).sendToClient(requestSummary.getBytes());
+				( (TCPConnectionThread) registeredNodes.get(key)[1] ).sendFromRegistryToClient(requestSummary.getBytes());
 			} catch (IOException e) {
 				System.out.println("Error sending requesting traffic summary to clients: ");
 				e.printStackTrace();
@@ -287,7 +287,7 @@ public class Registry extends TCPServer{
 
 			for (Integer key : registeredNodes.keySet()) {
 				try {
-					( (TCPConnectionThread) registeredNodes.get(key)[1] ).sendToClient(intiateTask.getBytes());
+					( (TCPConnectionThread) registeredNodes.get(key)[1] ).sendFromRegistryToClient(intiateTask.getBytes());
 				} catch (IOException e) {
 					System.out.println("Error sending task initate message to clients: ");
 					e.printStackTrace();
@@ -327,7 +327,7 @@ public class Registry extends TCPServer{
 				TCPConnectionThread client = (TCPConnectionThread)registeredNodes.get(key)[1];
 				try {
 					// System.out.println("Sending manifest to node: " + client.toString());
-					client.sendToClient(e.getBytes());
+					client.sendFromRegistryToClient(e.getBytes());
 				} catch (IOException e1) {
 					System.out.println("Error sending manifest to client " + key + ": ");
 					e1.printStackTrace();

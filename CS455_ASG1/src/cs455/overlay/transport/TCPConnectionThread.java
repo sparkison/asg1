@@ -20,9 +20,13 @@ public class TCPConnectionThread extends Thread {
 	private Socket clientSocket;
 	private DataInputStream din;
 	private DataOutputStream dout;
+	private Object inputLock = new Object();
 	private boolean iAmListening = false;
 	private int threadID;
-	private Object inputLock = new Object();
+
+	/*
+	 * Methods declared "final" for dealing with concurrent access to Object
+	 */
 
 	// Constructor **************
 	public TCPConnectionThread(ThreadGroup group, Socket clientSocket, TCPServer server) throws IOException {
@@ -53,11 +57,36 @@ public class TCPConnectionThread extends Thread {
 
 	/**
 	 * Sends data to this client
+	 * Used by the Registry
+	 * Doesn't need synchronized b/c only 1 Registry
 	 * @param data
 	 * @throws IOException
 	 * @return void
 	 */
-	final public void sendToClient(byte[] data) throws IOException{
+	final public void sendFromRegistryToClient(byte[] data) throws IOException{
+		if (clientSocket == null || dout == null)
+			throw new SocketException("socket does not exist");
+		/*
+		 * Need to synchronize to avoid concurrency issues
+		 * Multiple Threads could be sending messages
+		 * to this client at any given time
+		 */
+		int dataLength = data.length;
+		dout.writeInt(dataLength);
+		dout.write(data, 0, dataLength);
+		dout.flush();
+	}
+
+	/**
+	 * Sends data to this client
+	 * Used by the Client servers
+	 * Needs to be synchronized b/c can have multiple
+	 * ClientServers sending at the same time
+	 * @param data
+	 * @throws IOException
+	 * @return void
+	 */
+	final public void sendFromClientToClient(byte[] data) throws IOException{
 		if (clientSocket == null || dout == null)
 			throw new SocketException("socket does not exist");
 		/*
@@ -115,7 +144,7 @@ public class TCPConnectionThread extends Thread {
 			return clientSocket.getInetAddress();
 		else 
 			return null;
-		
+
 	}
 
 	public String toString(){

@@ -23,15 +23,16 @@ public abstract class TCPServer implements Runnable{
 	private ServerSocket serverSocket = null;
 	private Thread connectionListener;
 	private ThreadGroup clientThreadGroup;
+	private Object addClientLock = new Object();
 	private boolean iAmListening = true;
 	private int port;
 
 	// Constructor **************
-	public TCPServer(int port){
+	public TCPServer(int port, String threadGroup){
 		// Set the port
 		this.port = port;
 		// A ThreadGroup to hold the clients connected to this registry
-		this.clientThreadGroup = new ThreadGroup("TCPConnectionThread threads");
+		this.clientThreadGroup = new ThreadGroup(threadGroup);
 	}
 
 	/**
@@ -110,7 +111,7 @@ public abstract class TCPServer implements Runnable{
 					Socket clientSocket = serverSocket.accept();
 					// When a client is accepted, create a thread to handle
 					// the data exchange, then add it to thread group
-					synchronized(this){
+					synchronized(addClientLock){
 						new TCPConnectionThread(this.clientThreadGroup, clientSocket, this);
 					}
 				}
