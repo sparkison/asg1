@@ -132,6 +132,16 @@ public class Registry extends TCPServer{
 		nodesCompleted.add(taskFinish);
 		if(nodesCompleted.size() == registeredNodes.size()){
 			// All nodes have reported task finish
+			try {
+				/*
+				 * Sleep for 2 seconds to allow threads time to finish up
+				 * since it's possible clients have finished sending, but there
+				 * may still be threads outstanding sending messages...
+				 */
+				Thread.sleep(2000);
+			} catch (InterruptedException e1) {
+				e1.printStackTrace();
+			}
 			requestSummary();
 		}
 	}

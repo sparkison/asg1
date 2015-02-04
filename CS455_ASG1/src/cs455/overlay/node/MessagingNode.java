@@ -431,12 +431,6 @@ public class MessagingNode extends TCPClient {
 	 */
 	private void getStats(){
 
-		try {
-			Thread.sleep(200);
-		} catch (InterruptedException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
 		Event reportSummary = ef.buildEvent(Protocol.OVERLAY_NODE_REPORTS_TRAFFIC_SUMMARY, myID 
 				+ ";" + sendTracker + ";" + clientReceiver.getRelayTracker() + ";" + sendSummation 
 				+ ";" + clientReceiver.getReceiveTraker() + ";" + clientReceiver.getReceiveSummation());
