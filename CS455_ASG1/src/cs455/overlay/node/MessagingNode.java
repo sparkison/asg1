@@ -525,10 +525,6 @@ public class MessagingNode extends TCPClient {
 
 		@Override
 		public void onEvent(Event event, TCPConnectionThread client) {
-			handleMessage(event);
-		}
-
-		final void handleMessage(Event event){
 			OverlayNodeSendsData ovnData;
 
 			try {
@@ -553,9 +549,9 @@ public class MessagingNode extends TCPClient {
 			}
 		}
 
-		final void forwardPacket(OverlayNodeSendsData ovnData) throws IOException{
+		private void forwardPacket(OverlayNodeSendsData ovnData) throws IOException{
 
-			updateRelay();
+			updateRelayed();
 			int sink = ovnData.getDestinationID();
 
 			// Update the dissemination for this packet
@@ -603,15 +599,21 @@ public class MessagingNode extends TCPClient {
 			}
 		}
 
-		private synchronized void updateReceived(long payload){
+		private synchronized void updateRelayed(){
+			relayTracker++;
+		}
+		
+		private synchronized void updateReceived(int payload){
 			receiveSummation += payload;
 			receiveTraker++;
 		}
-
-		private synchronized void updateRelay(){
-			relayTracker++;
+		
+		private void resetCounters(){
+			this.receiveTraker = 0;
+			this.receiveSummation = 0;
+			this.relayTracker = 0;
 		}
-
+		
 		/**
 		 * SETTERS
 		 */
@@ -622,10 +624,8 @@ public class MessagingNode extends TCPClient {
 
 		public void setRoutingTable(Map<Integer, TCPConnectionThread> clientConnections){
 			this.clientConnections = clientConnections;
-			// if set new routing table, need to reset counters
-			this.receiveTraker = 0;
-			this.receiveSummation = 0;
-			this.relayTracker = 0;
+			// Set/Reset counters each time a routing table is passed
+			resetCounters();
 		}
 
 		/**

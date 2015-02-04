@@ -22,6 +22,7 @@ public class TCPConnectionThread extends Thread {
 	private DataOutputStream dout;
 	private boolean iAmListening = false;
 	private int threadID;
+	private Object inputLock = new Object();
 
 	// Constructor **************
 	public TCPConnectionThread(ThreadGroup group, Socket clientSocket, TCPServer server) throws IOException {
@@ -64,7 +65,7 @@ public class TCPConnectionThread extends Thread {
 		 * Multiple Threads could be sending messages
 		 * to this client at any given time
 		 */
-		synchronized(this){
+		synchronized(inputLock){
 			int dataLength = data.length;
 			dout.writeInt(dataLength);
 			dout.write(data, 0, dataLength);

@@ -131,17 +131,19 @@ public class Registry extends TCPServer{
 		OverlayNodeReportsTaskFinished taskFinish = (OverlayNodeReportsTaskFinished) event;
 		nodesCompleted.add(taskFinish);
 		if(nodesCompleted.size() == registeredNodes.size()){
+			System.out.print("all nodes reported task complete waiting 5 seconds to request summary...");
 			// All nodes have reported task finish
 			try {
 				/*
-				 * Sleep for 2 seconds to allow threads time to finish up
+				 * Sleep for 5 seconds to allow threads time to finish up
 				 * since it's possible clients have finished sending, but there
 				 * may still be threads outstanding sending messages...
 				 */
-				Thread.sleep(2000);
+				Thread.sleep(5000);
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
 			}
+			System.out.print("requesting data summary from each node.");
 			requestSummary();
 		}
 	}
@@ -279,7 +281,7 @@ public class Registry extends TCPServer{
 			nodesCompleted.clear();
 			nodesSummary.clear();
 			
-			System.out.println("Starting task with " + numMessages + " packets...\n");
+			System.out.print("Starting task with " + numMessages + " packets...");
 
 			Event intiateTask = ef.buildEvent(Protocol.REGISTRY_REQUESTS_TASK_INITIATE, "" + numMessages);
 
