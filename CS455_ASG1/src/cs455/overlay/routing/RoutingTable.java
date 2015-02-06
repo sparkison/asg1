@@ -10,8 +10,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import cs455.overlay.transport.TCPConnectionThread;
-
 public class RoutingTable {
 
 	// Instance variables **************
