@@ -198,8 +198,8 @@ public class MessagingNode implements Node{
 			// Unable to register
 			System.out.println("Registration error!");
 			System.out.println(registerStatus.getMessage());
+			close();
 		}
-		close();
 
 	}
 
