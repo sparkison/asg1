@@ -10,16 +10,23 @@ public class TCPConnection{
 
 	private EventFactory ef = EventFactory.getInstance();
 	private TCPSender sender;
-	private TCPReceiver receiver;
+	private TCPReceiverThread receiver;
 	private Socket socket;
+	private int connectionId;
 	
-	public TCPConnection(Socket socket, Node node){
+	public TCPConnection(int id, Socket socket, Node node){
 		
+		this.connectionId = id;
 		this.socket = socket;
 		
 		try {
 			
-			this.receiver = new TCPReceiver(socket, node);
+			/*
+			 * Passing the connection id onto the receiver
+			 * Whenever we receive data from this connection, we
+			 * can determine where it came from
+			 */
+			this.receiver = new TCPReceiverThread(id, socket, node);
 			Thread receive = new Thread(receiver);
 			receive.start();
 			
@@ -38,13 +45,16 @@ public class TCPConnection{
 		return socket;
 	}
 	
-	public void sendData(byte[] data){
-		try {
-			sender.sendData(data);
-		} catch (IOException e) {
-			System.out.println("Error sending data to server: ");
-			e.printStackTrace();
-		}
+	public void sendData(byte[] data) throws IOException{
+		sender.sendData(data);
+	}
+	
+	/**
+	 * Get the id assigned to this connection
+	 * @return int
+	 */
+	public int getConnectionId(){
+		return connectionId;
 	}
 
 }

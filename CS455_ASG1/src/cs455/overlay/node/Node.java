@@ -3,7 +3,8 @@ package cs455.overlay.node;
 import cs455.overlay.wireformats.Event;
 
 public interface Node {
-
-	public void onEvent(Event e);
+	
+	// Event with id of connection that sent it
+	public void onEvent(Event e, int id);
 	
 }

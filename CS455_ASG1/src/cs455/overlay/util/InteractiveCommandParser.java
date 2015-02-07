@@ -73,38 +73,38 @@ public class InteractiveCommandParser{
 	 * @param message
 	 */
 	private void handleMessageFromRegistryUI(String message){
-		//		if(message.startsWith("list-messaging")){
-		//			registeryNode.printNodes();
-		//		}else if(message.equals("list-routing-tables")){
-		//			registeryNode.listRoutingTables();
-		//		}else if(message.startsWith("setup-overlay")){
-		//			int NR = registeryNode.getNRSize();
-		//			try{
-		//				NR = Integer.parseInt(message.split(" ")[1]);
-		//				registeryNode.setNRSize(NR);
-		//			}catch(ArrayIndexOutOfBoundsException e){} // Not doing anything here, in case want to use default NR of 3
-		//			if(NR < 1){
-		//				System.out.println("Unable to setup routing table with NR = " + NR + ", the minimum is 1.");
-		//			}else{
-		//				registeryNode.sendNodeManifest();
-		//			}
-		//		}else if(message.startsWith("start")){
-		//			int numMessages;
-		//			try{
-		//				numMessages = Integer.parseInt(message.split(" ")[1]);
-		//				if(numMessages < 1){
-		//					System.out.println("Need a minimum of 1 packet to start, you entered " + numMessages);
-		//				}else{
-		//					registeryNode.requestTaskInitiate(numMessages);
-		//				}
-		//			}catch(ArrayIndexOutOfBoundsException e){
-		//				System.out.println("Incorrect format for start command, please use \"start [number-of-messages]\"");
-		//			}
-		//
-		//		}
-		//		else{
-		//			System.out.println("Command not recognized.");
-		//		}
+		if(message.startsWith("list-messaging")){
+			registeryNode.printNodes();
+		}else if(message.equals("list-routing-tables")){
+			registeryNode.listRoutingTables();
+		}else if(message.startsWith("setup-overlay")){
+			int NR = registeryNode.getNRSize();
+			try{
+				NR = Integer.parseInt(message.split(" ")[1]);
+				registeryNode.setNRSize(NR);
+			}catch(ArrayIndexOutOfBoundsException e){} // Not doing anything here, in case want to use default NR of 3
+			if(NR < 1){
+				System.out.println("Unable to setup routing table with NR = " + NR + ", the minimum is 1.");
+			}else{
+				registeryNode.sendNodeManifest();
+			}
+		}else if(message.startsWith("start")){
+			int numMessages;
+			try{
+				numMessages = Integer.parseInt(message.split(" ")[1]);
+				if(numMessages < 1){
+					System.out.println("Need a minimum of 1 packet to start, you entered " + numMessages);
+				}else{
+					registeryNode.requestTaskInitiate(numMessages);
+				}
+			}catch(ArrayIndexOutOfBoundsException e){
+				System.out.println("Incorrect format for start command, please use \"start [number-of-messages]\"");
+			}
+
+		}
+		else{
+			System.out.println("Command not recognized.");
+		}
 	}
 
 	/**
@@ -112,16 +112,13 @@ public class InteractiveCommandParser{
 	 * @param message
 	 */
 	private void handleMessageFromClientUI(String message){
-		if(message.equals("test")){
-			messageNode.testSends();
+		if(message.startsWith("print-counters-")){
+			messageNode.printCounters();
+		}else if(message.equalsIgnoreCase("exit-overlay")){
+			messageNode.sendDeregistration();
+		}else if(message.startsWith("list-routing")){
+			messageNode.listRoutingTable();
 		}
-		//		if(message.startsWith("print-counters-")){
-		//			messageNode.printCounters();
-		//		}else if(message.equalsIgnoreCase("exit-overlay")){
-		//			messageNode.sendDeregistration();
-		//		}else if(message.startsWith("list-routing")){
-		//			messageNode.listRoutingTable();
-		//		}
 		else{
 			System.out.println("Command not recognized.");
 		}
