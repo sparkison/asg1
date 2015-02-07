@@ -56,6 +56,7 @@ public class Registry implements Node{
 		} catch (IOException e) {
 			System.out.println("Error listening for clients: ");
 			e.printStackTrace();
+			System.exit(-1);
 		}
 	}
 
@@ -77,11 +78,13 @@ public class Registry implements Node{
 
 				while(true){
 					try {
-
-						Socket client = svSocket.accept();
-						int key = connectionCache.getNodeID();
-						TCPConnection clientConnection = new TCPConnection(key, client, registry);
-						connectionCache.addConnection(key, clientConnection);
+						
+						synchronized(this){
+							Socket client = svSocket.accept();
+							int key = connectionCache.getNodeID();
+							TCPConnection clientConnection = new TCPConnection(key, client, registry);
+							connectionCache.addConnection(key, clientConnection);
+						}
 
 					} catch (IOException e) {
 						e.printStackTrace();
@@ -107,7 +110,7 @@ public class Registry implements Node{
 			break;
 
 		case Protocol.NODE_REPORTS_OVERLAY_SETUP_STATUS:
-			getSetupStatus(event);
+			getSetupStatus(event, id);
 			break;
 
 		case Protocol.OVERLAY_NODE_REPORTS_TASK_FINISHED:
@@ -174,7 +177,7 @@ public class Registry implements Node{
 	 * Registry to re-issue "setup-overlay" command
 	 * @param event
 	 */
-	private void getSetupStatus(Event event){
+	private void getSetupStatus(Event event, int id){
 
 		NodeReportsOverlaySetupStatus nodeSetupStatus = (NodeReportsOverlaySetupStatus) event;
 		int status = nodeSetupStatus.getStatus();
@@ -184,6 +187,9 @@ public class Registry implements Node{
 		}else{
 			// Setup failed
 			// Routing table is now void, need to rebuild
+			System.out.println("Node " + id + " was unable to setup connections.");
+			nodeRegistered.remove(id);
+			connectionCache.removeConnection(id);
 			resetRoutingTable();
 		}
 	}
@@ -197,7 +203,6 @@ public class Registry implements Node{
 		int status = -1;
 		OverlayNodeSendsDeregistration deregister = (OverlayNodeSendsDeregistration) event;
 		if(nodeRegistered.remove(deregister.getNodeID()) != null){
-			connectionCache.removeConnection(id);
 			status = 1;
 		}
 		Event deregisterStatus = ef.buildEvent(Protocol.REGISTRY_REPORTS_DEREGISTRATION_STATUS, "" + status);
@@ -205,6 +210,7 @@ public class Registry implements Node{
 		try {
 			// Send deRegistration status back to client
 			connectionCache.getConnection(id).sendData(deregisterStatus.getBytes());
+			connectionCache.removeConnection(id);
 			// Routing table is now void, need to rebuild
 			resetRoutingTable();
 		} catch (IOException e1) {
@@ -406,6 +412,13 @@ public class Registry implements Node{
 		}
 	}
 
+	/**
+	 * Close connections and shut down!
+	 */
+	public void shutDown(){
+		// Not yet implemented...
+	}
+	
 	/**
 	 * Clear the routing table
 	 */

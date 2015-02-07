@@ -46,7 +46,7 @@ public class TCPConnectionCache {
 			try {
 				registeredNodes.get(key).sendData(data);
 			} catch (IOException e) {
-				System.out.println("Error" + messageInfo + ": ");
+				System.out.println("Error " + messageInfo + ": ");
 				e.printStackTrace();
 			}
 		}

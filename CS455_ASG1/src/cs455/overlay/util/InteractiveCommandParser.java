@@ -101,6 +101,8 @@ public class InteractiveCommandParser{
 				System.out.println("Incorrect format for start command, please use \"start [number-of-messages]\"");
 			}
 
+		}else if(message.equalsIgnoreCase("exit")){
+			registeryNode.shutDown();
 		}
 		else{
 			System.out.println("Command not recognized.");

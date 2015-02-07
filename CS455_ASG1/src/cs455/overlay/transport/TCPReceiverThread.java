@@ -10,14 +10,15 @@ import cs455.overlay.wireformats.Event;
 import cs455.overlay.wireformats.EventFactory;
 
 public class TCPReceiverThread extends Thread{
-	
+
 	// Instance variables **************
 	private Socket socket;
 	private DataInputStream din;
 	private Node node;
 	private EventFactory ef = EventFactory.getInstance();
 	private int connectionId;
-	
+	private Object receiveLock = new Object();
+
 	/**
 	 * Main constructor
 	 * @param id
@@ -31,37 +32,44 @@ public class TCPReceiverThread extends Thread{
 		this.node = node;
 		din = new DataInputStream(socket.getInputStream());
 	}
-	
+
 	/**
 	 * Runs when thread is initialized (.start() is called on it).
 	 */
 	public void run() {
-		int dataLength;
+
 		while (socket != null) {
-			try {		
+			
+			synchronized(receiveLock){
 				
-				// Get data, and send to node for processing
-				dataLength = din.readInt();
-				byte[] data = new byte[dataLength];
-				din.readFully(data, 0, dataLength);
-				/*
-				 * Build Event to send to reciever
-				 * this will be destined for the end
-				 * that initiated the ServerSocket.
-				 * Passing id with message so we know
-				 * where the message originated from
-				 */
-				Event e = ef.getEvent(data);
-				node.onEvent(e, connectionId);
+				try {	
+					// Get data, and send to node for processing
+					int dataLength = din.readInt();
+					byte[] data = new byte[dataLength];
+					din.readFully(data, 0, dataLength);
+					/*
+					 * Build Event to send to reciever
+					 * this will be destined for the end
+					 * that initiated the ServerSocket.
+					 * Passing id with message so we know
+					 * where the message originated from
+					 */
+					Event e = ef.getEvent(data);
+					if(e != null){
+						node.onEvent(e, connectionId);	
+					}
+								
+				} catch (SocketException se) {
+					System.out.println(se.getMessage());
+					break;
+				} catch (IOException ioe) {
+					System.out.println(ioe.getMessage()) ;
+					break;
+				}
 				
-			} catch (SocketException se) {
-				System.out.println(se.getMessage());
-				break;
-			} catch (IOException ioe) {
-				System.out.println(ioe.getMessage()) ;
-				break;
-			}
+			}// END synchronized block		
+			
 		}
 	}
-	
+
 }

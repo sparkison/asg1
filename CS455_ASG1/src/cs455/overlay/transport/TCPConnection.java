@@ -4,16 +4,20 @@ import java.io.IOException;
 import java.net.Socket;
 
 import cs455.overlay.node.Node;
-import cs455.overlay.wireformats.EventFactory;
 
 public class TCPConnection{
 
-	private EventFactory ef = EventFactory.getInstance();
 	private TCPSender sender;
 	private TCPReceiverThread receiver;
 	private Socket socket;
 	private int connectionId;
 	
+	/**
+	 * TCPConncetion constructor
+	 * @param id
+	 * @param socket
+	 * @param node
+	 */
 	public TCPConnection(int id, Socket socket, Node node){
 		
 		this.connectionId = id;
@@ -41,10 +45,19 @@ public class TCPConnection{
 		
 	}
 	
+	/**
+	 * Return the socket associated with this TCPConnection
+	 * @return
+	 */
 	public Socket getSocket(){
 		return socket;
 	}
 	
+	/**
+	 * Send data to this connections node
+	 * @param data
+	 * @throws IOException
+	 */
 	public void sendData(byte[] data) throws IOException{
 		sender.sendData(data);
 	}

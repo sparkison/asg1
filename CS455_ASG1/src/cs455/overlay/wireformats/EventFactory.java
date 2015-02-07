@@ -40,7 +40,7 @@ public class EventFactory {
 	 * @return Event
 	 */
 	public Event buildEvent(int type, String message) {
-		
+
 		// Get the message components
 		String[] eventMessage = getMessage(message);
 
@@ -158,8 +158,8 @@ public class EventFactory {
 			break;
 
 		default:
-			System.out.println("Unrecognized event type: " + type + ", unable to build Event.");
-			
+			//System.out.println("Unrecognized event type: " + type + ", unable to build Event.");
+
 		}
 
 		return null;
@@ -180,7 +180,7 @@ public class EventFactory {
 	public Event getEvent(byte[] components) {
 
 		int type = getType(components);
-		
+
 		switch (type) {
 
 		case Protocol.NODE_REPORTS_OVERLAY_SETUP_STATUS:
@@ -272,17 +272,18 @@ public class EventFactory {
 			}
 
 		default:
-			System.out.println("Unrecognized event type: " + type + ", unable to get Event.");
-			
+			return null;
+			//System.out.println("Unrecognized event type: " + type + ", unable to get Event.");
+
 		}
-		return null;
+
 	}
 
-	
+
 	/********************************************
 	 ****************** HELPERS *****************
 	 ********************************************/
-	
+
 
 	/**
 	 * Get the type based on byte[] passed
@@ -303,7 +304,7 @@ public class EventFactory {
 		}
 		return type;
 	}// END getType **************
-	
+
 	/**
 	 * Gets the string from the getEvent method, parameters delimited by ';'
 	 * 

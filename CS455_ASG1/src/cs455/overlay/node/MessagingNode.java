@@ -37,7 +37,7 @@ public class MessagingNode implements Node{
 	// Connections
 	private Socket clientSocket;
 	private ServerSocket svSocket;
-	private TCPSender sender;
+	private TCPSender registrySender;
 	private TCPReceiverThread receiver;
 	private List<RoutingEntry> routingTable;
 	private int[] nodeList;
@@ -57,7 +57,7 @@ public class MessagingNode implements Node{
 
 			// Setup connections (input/output streams)
 			this.clientSocket = new Socket(host, port);
-			this.sender = new TCPSender(clientSocket);
+			this.registrySender = new TCPSender(clientSocket);
 			/*
 			 * The TCPReceiverThread takes an id first, since
 			 * this receiver is only for messages from the Registry
@@ -104,7 +104,7 @@ public class MessagingNode implements Node{
 
 		// Finally, send the message to the server
 		try {
-			sender.sendData(registerClient.getBytes());
+			registrySender.sendData(registerClient.getBytes());
 		} catch (IOException e) {
 			System.out.println("Error sending Registration Event to Registry: ");
 			e.printStackTrace();
@@ -129,7 +129,9 @@ public class MessagingNode implements Node{
 						 * The messaging node doesn't need to assign id's,
 						 * so defaulting to 0 for connectionID
 						 */
-						TCPConnection clientConnection = new TCPConnection(0, client, messageNode);
+						synchronized(this){
+							new TCPConnection(0, client, messageNode);
+						}							
 
 					} catch (IOException e) {
 						e.printStackTrace();
@@ -142,6 +144,7 @@ public class MessagingNode implements Node{
 
 	@Override
 	public void onEvent(Event event, int id) {
+		
 		switch (event.getType()){
 
 		case Protocol.REGISTRY_REPORTS_REGISTRATION_STATUS:
@@ -172,6 +175,7 @@ public class MessagingNode implements Node{
 			System.out.println("Unrecognized event type received");
 
 		}
+		
 	}// END onEvent **************
 
 	/******************************************
@@ -277,7 +281,7 @@ public class MessagingNode implements Node{
 		Event setupStatus = ef.buildEvent(Protocol.NODE_REPORTS_OVERLAY_SETUP_STATUS, status + ";" + statusMessage.length() + ";" + statusMessage);
 
 		try {
-			sender.sendData(setupStatus.getBytes());
+			registrySender.sendData(setupStatus.getBytes());
 		} catch (IOException e) {
 			System.out.println("Error sending setup status to Registry: ");
 			e.printStackTrace();
@@ -347,7 +351,7 @@ public class MessagingNode implements Node{
 		// If here, task finished, notify Registry
 		Event finishStatus = ef.buildEvent(Protocol.OVERLAY_NODE_REPORTS_TASK_FINISHED, myIPAddress + ";" + listenPort + ";" + myID);
 		try {
-			sender.sendData(finishStatus.getBytes());
+			registrySender.sendData(finishStatus.getBytes());
 		} catch (IOException e) {
 			System.out.println("Error sending task complete status to Registry: ");
 			e.printStackTrace();
@@ -375,6 +379,7 @@ public class MessagingNode implements Node{
 				System.out.println("Received payload for node (" + myID + ")!!");
 				System.out.println("Trace: num hops = " + ovnData.getHopTraceLength() + ", trace route = " + ovnData.getHopTrace());
 				System.out.println();
+				
 			}else{
 				updateRelayed();
 				// Update the dissemination for this packet
@@ -473,7 +478,7 @@ public class MessagingNode implements Node{
 		String message = myIPAddress.length() + ";" + myIPAddress + ";" + listenPort + ";" + myID;
 		Event e = ef.buildEvent(Protocol.OVERLAY_NODE_SENDS_DEREGISTRATION, message);
 		try {
-			sender.sendData(e.getBytes());
+			registrySender.sendData(e.getBytes());
 		} catch (IOException e1) {
 			System.out.println("Error sending deregistration to Registry: ");
 			e1.printStackTrace();
@@ -518,7 +523,7 @@ public class MessagingNode implements Node{
 				+ ";" + sendTracker + ";" + relayTracker + ";" + sendSummation 
 				+ ";" + receiveTraker + ";" + receiveSummation);
 		try {
-			sender.sendData(reportSummary.getBytes());
+			registrySender.sendData(reportSummary.getBytes());
 		} catch (IOException e) {
 			System.out.println("Error sending report summary to Registry: ");
 			e.printStackTrace();
@@ -551,7 +556,7 @@ public class MessagingNode implements Node{
 			svSocket.close();
 		} catch (IOException e) {
 			e.printStackTrace();
-		}finally{
+		} finally {
 			System.exit(-1);
 		}
 
