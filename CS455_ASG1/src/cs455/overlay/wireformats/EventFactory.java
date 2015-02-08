@@ -296,10 +296,15 @@ public class EventFactory {
 		int type = -1;
 		try {
 			type = din.readInt();
-			din.close();
-			baInputStream.close();
 		} catch (IOException e) {
 			System.out.println("EventFactory - error getting data type: ");
+			e.printStackTrace();
+		}
+		try {
+			baInputStream.close();
+			din.close();
+		} catch (IOException e) {
+			System.out.println("EventFactory - error closing streams: ");
 			e.printStackTrace();
 		}
 		return type;

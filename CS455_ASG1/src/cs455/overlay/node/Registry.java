@@ -78,7 +78,9 @@ public class Registry implements Node{
 
 				while(true){
 					try {
-						
+						/*
+						 * Multiple nodes could be connection at the same time
+						 */
 						synchronized(this){
 							Socket client = svSocket.accept();
 							int key = connectionCache.getNodeID();
@@ -136,9 +138,11 @@ public class Registry implements Node{
 
 	/**
 	 * Called when overlay node reports task complete
+	 * Synchronized to ensure no concurrency issues as multiple
+	 * messaging nodes could be sending at the same time
 	 * @param event
 	 */
-	private void nodeReportsFinish(Event event){
+	private synchronized void nodeReportsFinish(Event event){
 		OverlayNodeReportsTaskFinished taskFinish = (OverlayNodeReportsTaskFinished) event;
 		nodesCompleted.add(taskFinish);
 		if(nodesCompleted.size() == nodeRegistered.size()){
@@ -161,9 +165,11 @@ public class Registry implements Node{
 
 	/**
 	 * Called when overlay node reports summary data
+	 * Synchronized to ensure no concurrency issues as multiple
+	 * messaging nodes could be sending at the same time
 	 * @param event
 	 */
-	private void nodeReportsSummary(Event event){
+	private synchronized void nodeReportsSummary(Event event){
 		nodesSummary.add(event);
 		if(nodesSummary.size() == nodeRegistered.size()){
 			// All nodes have reported task finish
@@ -175,9 +181,12 @@ public class Registry implements Node{
 	 * Called when overlay node reports its setup status
 	 * Will reset the routing table if unsuccessful to force
 	 * Registry to re-issue "setup-overlay" command
+	 * 
+	 * Synchronized to ensure no concurrency issues as multiple
+	 * messaging nodes could be sending at the same time
 	 * @param event
 	 */
-	private void getSetupStatus(Event event, int id){
+	private synchronized void getSetupStatus(Event event, int id){
 
 		NodeReportsOverlaySetupStatus nodeSetupStatus = (NodeReportsOverlaySetupStatus) event;
 		int status = nodeSetupStatus.getStatus();

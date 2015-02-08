@@ -30,6 +30,7 @@ public class TCPConnection{
 			 * Whenever we receive data from this connection, we
 			 * can determine where it came from
 			 */
+			this.sender = new TCPSender(socket);
 			this.receiver = new TCPReceiverThread(id, socket, node);
 			Thread receive = new Thread(receiver);
 			receive.start();
@@ -37,12 +38,7 @@ public class TCPConnection{
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		try {
-			this.sender = new TCPSender(socket);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		
+
 	}
 	
 	/**

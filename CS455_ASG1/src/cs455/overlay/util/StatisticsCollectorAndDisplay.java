@@ -28,7 +28,7 @@ public class StatisticsCollectorAndDisplay {
 		statsTable += String.format("+----------+---------------+-------------------+------------------+--------------------+--------------------+%n");
 		
 		for(Event event : nodesSummary){
-			
+						
 			OverlayNodeReportsTrafficSummary nodeSummary = (OverlayNodeReportsTrafficSummary) event;
 			
 			totalPacketsSent += nodeSummary.getNumPacketsSent();

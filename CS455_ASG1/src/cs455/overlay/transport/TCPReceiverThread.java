@@ -17,7 +17,6 @@ public class TCPReceiverThread extends Thread{
 	private Node node;
 	private EventFactory ef = EventFactory.getInstance();
 	private int connectionId;
-	private Object receiveLock = new Object();
 
 	/**
 	 * Main constructor
@@ -39,36 +38,31 @@ public class TCPReceiverThread extends Thread{
 	public void run() {
 
 		while (socket != null) {
-			
-			synchronized(receiveLock){
-				
-				try {	
-					// Get data, and send to node for processing
-					int dataLength = din.readInt();
-					byte[] data = new byte[dataLength];
-					din.readFully(data, 0, dataLength);
-					/*
-					 * Build Event to send to reciever
-					 * this will be destined for the end
-					 * that initiated the ServerSocket.
-					 * Passing id with message so we know
-					 * where the message originated from
-					 */
-					Event e = ef.getEvent(data);
-					if(e != null){
-						node.onEvent(e, connectionId);	
-					}
-								
-				} catch (SocketException se) {
-					System.out.println(se.getMessage());
-					break;
-				} catch (IOException ioe) {
-					System.out.println(ioe.getMessage()) ;
-					break;
-				}
-				
-			}// END synchronized block		
-			
+			try {	
+				// Get data, and send to node for processing
+				int dataLength = din.readInt();
+				byte[] data = new byte[dataLength];
+				din.readFully(data, 0, dataLength);
+				/*
+				 * Build Event to send to receiver
+				 * this will be destined for the end
+				 * that initiated the ServerSocket.
+				 * Passing id with message so we know
+				 * where the message originated from
+				 */
+
+				// System.out.println("Sending: " + e + "\nTo node: " + connectionId);
+				Event e = ef.getEvent(data);
+				node.onEvent(e, connectionId);	
+
+			} catch (SocketException se) {
+				System.out.println(se.getMessage());
+				break;
+			} catch (IOException ioe) {
+				System.out.println(ioe.getMessage()) ;
+				break;
+			}
+
 		}
 	}
 
