@@ -384,9 +384,9 @@ public class MessagingNode implements Node{
 				ovnData.updateHopTrace(myID);
 
 				// Debugging
-				System.out.println("Received payload for node (" + myID + ")!!");
-				System.out.println("Trace: num hops = " + ovnData.getHopTraceLength() + ", trace route = " + ovnData.getHopTrace());
-				System.out.println();
+				//System.out.println("Received payload for node (" + myID + ")!!");
+				//System.out.println("Trace: num hops = " + ovnData.getHopTraceLength() + ", trace route = " + ovnData.getHopTrace());
+				//System.out.println();
 
 			}else{
 				updateRelayed();
@@ -394,7 +394,7 @@ public class MessagingNode implements Node{
 				ovnData.updateHopLength();
 				ovnData.updateHopTrace(myID);
 				// Route the packet
-				routeData(sink, data);  /************************	DEADLOCK HERE!!!!	*****************************/
+				routeData(sink, data);  /************************	DEADLOCK HERE!?!?!?!?	*****************************/
 				
 			}
 
@@ -410,7 +410,7 @@ public class MessagingNode implements Node{
 	 * @param sink
 	 * @param data
 	 */
-	private void routeData(int sink, Event data){
+	private synchronized void routeData(int sink, Event data){
 		// Node not in list of connections, need to find nearest node
 		// Idea: take sink - nodeID, if negative, we passed the sink
 		// ignore it, else compare to min, if less set to min, continue

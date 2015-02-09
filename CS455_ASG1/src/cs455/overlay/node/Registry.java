@@ -69,7 +69,7 @@ public class Registry implements Node{
 		new InteractiveCommandParser(registry);
 	}
 
-	public void listen(){
+	private void listen(){
 		// "this" reference to use for spawning the listening Thread
 		final Registry registry = this;
 		// "listener" Thread to accept incoming connections
@@ -79,7 +79,7 @@ public class Registry implements Node{
 				while(true){
 					try {
 						/*
-						 * Multiple nodes could be connection at the same time
+						 * Multiple nodes could be connecting at the same time
 						 */
 						synchronized(this){
 							Socket client = svSocket.accept();
@@ -420,12 +420,18 @@ public class Registry implements Node{
 			System.out.println("Routing table not yet setup. Please issue the \"setup-overlay [num-routing-table-entries]\" command first.");
 		}
 	}
-
+	
 	/**
-	 * Close connections and shut down!
+	 * Close socket connections and exit
 	 */
-	public void shutDown(){
-		// Not yet implemented...
+	public void close(){
+		try {
+			svSocket.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			System.exit(-1);
+		}
 	}
 	
 	/**
