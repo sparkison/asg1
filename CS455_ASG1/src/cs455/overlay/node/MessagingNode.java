@@ -377,7 +377,7 @@ public class MessagingNode implements Node{
 	 * from another MessageNode
 	 * @param event
 	 */
-	public synchronized void dataFromMessageNode(Event data){
+	public void dataFromMessageNode(Event data){
 		try {
 			OverlayNodeSendsData ovnData = new OverlayNodeSendsData(data.getBytes());
 			int sink = ovnData.getDestinationID();
@@ -416,7 +416,7 @@ public class MessagingNode implements Node{
 	 * @param sink
 	 * @param data
 	 */
-	private synchronized void routeData(int sink, Event data){
+	private void routeData(int sink, Event data){
 		/*
 		 * Node not in list of connections, need to find nearest node
 		 * Idea: take sink - nodeID, if negative, we passed the sink
@@ -470,7 +470,7 @@ public class MessagingNode implements Node{
 		return rand.nextInt();
 	}
 	
-	private synchronized void sendDataToClient(int id, Event data){
+	private void sendDataToClient(int id, Event data){
 		try {
 			clientConnections.get(id).sendData(data.getBytes());
 		} catch (IOException e) {
@@ -479,16 +479,16 @@ public class MessagingNode implements Node{
 		}
 	}
 
-	private  void updateSent(long payload){
+	private synchronized void updateSent(long payload){
 		sendSummation += payload;
 		sendTracker++;
 	}
 
-	private  void updateRelayed(){
+	private synchronized void updateRelayed(){
 		relayTracker++;
 	}
 
-	private  void updateReceived(int payload){
+	private synchronized void updateReceived(int payload){
 		receiveTraker++;
 		receiveSummation += payload;
 	}
