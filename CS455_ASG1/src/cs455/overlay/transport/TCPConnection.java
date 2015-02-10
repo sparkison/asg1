@@ -14,6 +14,8 @@ public class TCPConnection{
 	
 	/**
 	 * TCPConncetion constructor
+	 * Node is the node that created the receiver
+	 * id is the id assigned to this connection
 	 * @param id
 	 * @param socket
 	 * @param node

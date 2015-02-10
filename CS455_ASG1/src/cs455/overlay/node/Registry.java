@@ -86,6 +86,7 @@ public class Registry implements Node{
 							int key = connectionCache.getNodeID();
 							TCPConnection clientConnection = new TCPConnection(key, client, registry);
 							connectionCache.addConnection(key, clientConnection);
+							System.out.println("[messaging node connected]"); // Client connection notification
 						}
 
 					} catch (IOException e) {

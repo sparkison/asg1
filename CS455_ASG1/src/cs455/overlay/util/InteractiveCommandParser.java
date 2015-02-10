@@ -118,6 +118,8 @@ public class InteractiveCommandParser{
 			messageNode.sendDeregistration();
 		}else if(message.startsWith("list-routing")){
 			messageNode.listRoutingTable();
+		}else if(message.equals("debug")){
+			messageNode.setDebug();
 		}
 		else{
 			System.out.println("Command not recognized.");

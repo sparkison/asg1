@@ -33,6 +33,7 @@ public class MessagingNode implements Node{
 	private int port;
 	private int listenPort;
 	private String host;
+	private boolean debug = false;
 
 	// Connections
 	private Socket clientSocket;
@@ -128,11 +129,12 @@ public class MessagingNode implements Node{
 
 						Socket client = svSocket.accept();
 						/*
-						 * The messaging node doesn't need to assign id's,
-						 * so defaulting to 0 for connectionID
+						 * The messaging node doesn't need to assign id's
+						 * for record tracking, so defaulting to 0 for connectionID
 						 */
 						synchronized(this){
-							new TCPConnection(0, client, messageNode);
+							Thread receive = new Thread(new TCPReceiverThread(0, client, messageNode));
+							receive.start();
 						}							
 
 					} catch (IOException e) {
@@ -326,8 +328,7 @@ public class MessagingNode implements Node{
 		receiveSummation 	= 0;
 		relayTracker 		= 0;
 
-		//System.out.println("Getting ready to loop for " + numPackets + " packets");
-
+		
 		for(int i = 0; i<numPackets; ++i){
 
 			// Get payload and select node to send to
@@ -335,7 +336,8 @@ public class MessagingNode implements Node{
 			sink = selectRandomNode(rand);
 
 			// Debugging
-			//System.out.println("Sending data to node: " + sink);
+			if(debug)
+				System.out.println("Sending data to node: " + sink);
 
 			// Track the sent tracker
 			updateSent(payload);
@@ -362,9 +364,11 @@ public class MessagingNode implements Node{
 			e.printStackTrace();
 		}
 
-		System.out.println("**********************************");
-		System.out.println("Node " + myID + " finished task!");
-		System.out.println("**********************************");
+		if(debug){
+			System.out.println("**********************************");
+			System.out.println("Node " + myID + " finished task!");
+			System.out.println("**********************************");
+		}
 		
 	}
 
@@ -373,7 +377,7 @@ public class MessagingNode implements Node{
 	 * from another MessageNode
 	 * @param event
 	 */
-	public void dataFromMessageNode(Event data){
+	public synchronized void dataFromMessageNode(Event data){
 		try {
 			OverlayNodeSendsData ovnData = new OverlayNodeSendsData(data.getBytes());
 			int sink = ovnData.getDestinationID();
@@ -384,9 +388,11 @@ public class MessagingNode implements Node{
 				ovnData.updateHopTrace(myID);
 
 				// Debugging
-				//System.out.println("Received payload for node (" + myID + ")!!");
-				//System.out.println("Trace: num hops = " + ovnData.getHopTraceLength() + ", trace route = " + ovnData.getHopTrace());
-				//System.out.println();
+				if(debug){
+					System.out.println("Received payload for node (" + myID + ")!!");
+					System.out.println("Trace: num hops = " + ovnData.getHopTraceLength() + ", trace route = " + ovnData.getHopTrace());
+					System.out.println();
+				}
 
 			}else{
 				updateRelayed();
@@ -411,10 +417,12 @@ public class MessagingNode implements Node{
 	 * @param data
 	 */
 	private synchronized void routeData(int sink, Event data){
-		// Node not in list of connections, need to find nearest node
-		// Idea: take sink - nodeID, if negative, we passed the sink
-		// ignore it, else compare to min, if less set to min, continue
-		// After comparing all clientConnections end up with nearest node
+		/*
+		 * Node not in list of connections, need to find nearest node
+		 * Idea: take sink - nodeID, if negative, we passed the sink
+		 * ignore it, else compare to min, if less set to min, continue
+		 * After comparing all clientConnections end up with nearest node
+		 */
 		int min = Integer.MAX_VALUE;
 		int compare;
 		int location = -1;
@@ -427,9 +435,11 @@ public class MessagingNode implements Node{
 			}
 		}
 
-		// If location is still -1, the destination node is behind us (looped around in the list)
-		// Need to determine based on max(Math.abs(a,b))
-		// Is there a better way to do this in a single loop iteration???
+		/*
+		 * If location is still -1, the destination node is behind us (looped around in the list)
+		 * Need to determine based on max(Math.abs(a,b))
+		 * Is there a better way to do this in a single loop iteration???
+		 */
 
 		if(location == -1){
 			int max = Integer.MIN_VALUE;
@@ -460,7 +470,7 @@ public class MessagingNode implements Node{
 		return rand.nextInt();
 	}
 	
-	private void sendDataToClient(int id, Event data){
+	private synchronized void sendDataToClient(int id, Event data){
 		try {
 			clientConnections.get(id).sendData(data.getBytes());
 		} catch (IOException e) {
@@ -469,16 +479,16 @@ public class MessagingNode implements Node{
 		}
 	}
 
-	private synchronized void updateSent(long payload){
+	private  void updateSent(long payload){
 		sendSummation += payload;
 		sendTracker++;
 	}
 
-	private synchronized void updateRelayed(){
+	private  void updateRelayed(){
 		relayTracker++;
 	}
 
-	private synchronized void updateReceived(int payload){
+	private  void updateReceived(int payload){
 		receiveTraker++;
 		receiveSummation += payload;
 	}
@@ -560,6 +570,20 @@ public class MessagingNode implements Node{
 
 	}
 
+	/**
+	 * Enabled/Disable debugging output
+	 */
+	public void setDebug(){
+		if(debug){
+			System.out.println("Debugging disabled for this node");
+			debug = false;
+		}else{
+			System.out.println("Debugging enabled for this node");
+			debug = true;
+		}
+			
+	}
+	
 	/**
 	 * Close socket connections and exit
 	 */

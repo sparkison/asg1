@@ -40,7 +40,7 @@ public class TCPReceiverThread extends Thread{
 		while (socket != null) {
 			try {
 				
-				synchronized(this){
+				//synchronized(this){
 					// Get data, and send to node for processing
 					int dataLength = din.readInt();
 					byte[] data = new byte[dataLength];
@@ -56,7 +56,7 @@ public class TCPReceiverThread extends Thread{
 					// System.out.println("Sending: " + e + "\nTo node: " + connectionId);
 					Event e = ef.getEvent(data);
 					node.onEvent(e, connectionId);	
-				}
+				//}
 				
 
 			} catch (SocketException se) {
