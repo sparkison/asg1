@@ -397,6 +397,7 @@ public class MessagingNode implements Node{
 				ovnData.updateHopTrace(myID);
 				// Route the packet
 				routeData(sink, data);  /************************	DEADLOCK HERE!?!?!?!?	*****************************/
+										/****	Getting deadlock on the send method, which uses TCPSender, why??	****/
 				
 			}
 
