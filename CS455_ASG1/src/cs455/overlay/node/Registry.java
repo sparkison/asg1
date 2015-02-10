@@ -41,14 +41,11 @@ public class Registry implements Node{
 	private EventFactory ef = EventFactory.getInstance();
 	private RoutingTable routingTable;
 	private ServerSocket svSocket;
-	private int port;	
 	private int NR = 3;
 
 	// Registry constructor
 	public Registry(int port){
-		
-		this.port = port;
-		
+				
 		try {
 			// Open ServerSocket to accept data from Messaging Nodes
 			svSocket = new ServerSocket(port);

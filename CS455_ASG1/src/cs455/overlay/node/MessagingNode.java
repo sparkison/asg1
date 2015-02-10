@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.Random;
 
 import cs455.overlay.routing.RoutingEntry;
-import cs455.overlay.transport.TCPConnection;
 import cs455.overlay.transport.TCPReceiverThread;
 import cs455.overlay.transport.TCPSender;
 import cs455.overlay.util.InteractiveCommandParser;
@@ -30,9 +29,7 @@ public class MessagingNode implements Node{
 	private EventFactory ef = EventFactory.getInstance();
 	private String myIPAddress;
 	private int myID;
-	private int port;
 	private int listenPort;
-	private String host;
 	private boolean debug = false;
 
 	// Connections
@@ -52,8 +49,7 @@ public class MessagingNode implements Node{
 
 	// MessagingNode constructor
 	public MessagingNode(String host, int port){
-		this.host = host;
-		this.port = port;
+
 		try {
 
 			// Setup connections (input/output streams)
