@@ -124,6 +124,7 @@ public class Registry implements Node{
 		default:
 			System.out.println("Unrecognized event type received");
 		}
+		
 	}// END onEvent **************
 
 	/******************************************
@@ -206,7 +207,7 @@ public class Registry implements Node{
 	 * @param event
 	 * @param id
 	 */
-	private void deRegisterNode(Event event, int id){
+	private synchronized void deRegisterNode(Event event, int id){
 		int status = -1;
 		OverlayNodeSendsDeregistration deregister = (OverlayNodeSendsDeregistration) event;
 		if(nodeRegistered.remove(deregister.getNodeID()) != null){
@@ -231,7 +232,7 @@ public class Registry implements Node{
 	 * @param event
 	 * @param id
 	 */
-	private void registerNode(Event event, int id){
+	private synchronized void registerNode(Event event, int id){
 
 		/*
 		 * Register Client node
@@ -427,7 +428,6 @@ public class Registry implements Node{
 			svSocket.close();
 		} catch (IOException e) {
 			e.printStackTrace();
-		} finally {
 			System.exit(-1);
 		}
 	}

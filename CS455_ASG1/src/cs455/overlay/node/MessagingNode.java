@@ -1,7 +1,6 @@
 package cs455.overlay.node;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashMap;
@@ -10,12 +9,11 @@ import java.util.Map;
 import java.util.Random;
 
 import cs455.overlay.routing.RoutingEntry;
-import cs455.overlay.transport.TCPReceiverThread;
+import cs455.overlay.transport.TCPConnection;
 import cs455.overlay.transport.TCPSender;
 import cs455.overlay.util.InteractiveCommandParser;
 import cs455.overlay.wireformats.Event;
 import cs455.overlay.wireformats.EventFactory;
-import cs455.overlay.wireformats.OverlayNodeSendsData;
 import cs455.overlay.wireformats.Protocol;
 import cs455.overlay.wireformats.RegistryReportsDeregistrationStatus;
 import cs455.overlay.wireformats.RegistryReportsRegistrationStatus;
@@ -27,42 +25,30 @@ public class MessagingNode implements Node{
 	// Instance variables **************
 	private Map<Integer, TCPSender> clientConnections = new HashMap<Integer, TCPSender>();
 	private EventFactory ef = EventFactory.getInstance();
+	private MessagingNodeReceiver messageReceiver;
+	private boolean debug = false;
 	private String myIPAddress;
 	private int myID;
-	private int listenPort;
-	private boolean debug = false;
 
 	// Connections
-	private Socket clientSocket;
-	private ServerSocket svSocket;
-	private TCPSender registrySender;
-	private TCPReceiverThread receiver;
+	private TCPConnection registryConnection;
 	private List<RoutingEntry> routingTable;
+	private Socket clientSocket;
 	private int[] nodeList;
 
 	// Trackers
-	private int sendTracker;
 	private long sendSummation;
-	private int receiveTraker;
-	private long receiveSummation;
-	private int relayTracker;
+	private int sendTracker;	
 
+	
 	// MessagingNode constructor
 	public MessagingNode(String host, int port){
-
 		try {
 
 			// Setup connections (input/output streams)
 			this.clientSocket = new Socket(host, port);
-			this.registrySender = new TCPSender(clientSocket);
-			/*
-			 * The TCPReceiverThread takes an id first, since the 
-			 * message node doesn't care who the data came from,
-			 * don't need to use this.
-			 */
-			this.receiver = new TCPReceiverThread(0, clientSocket, this);
-			Thread receive = new Thread(receiver);
-			receive.start();
+			// Setup TCPConnection with Registry
+			this.registryConnection = new TCPConnection(0, clientSocket, this);
 
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
@@ -71,24 +57,12 @@ public class MessagingNode implements Node{
 			e.printStackTrace();
 			close();
 		}
-		try {
-			// Open ServerSocket to accept data from other Messaging Nodes
-			this.svSocket = new ServerSocket(0);
-			// Set listening port to pass to Registry
-			this.listenPort = svSocket.getLocalPort();
-			// Display success message
-			System.out.println("Client listening for connections on port: " + listenPort);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
 
 	}
 
 	public static void main(String args[]){
 		// Construct the Messaging Node
 		MessagingNode messageNode = new MessagingNode(args[0], Integer.parseInt(args[1]));
-		// Spawn a thread to list for connections on the ServerSocket
-		messageNode.listen();
 		// Initialize this Messaging Node
 		messageNode.intializeMessageNode();
 	}
@@ -97,13 +71,17 @@ public class MessagingNode implements Node{
 		// Send registration event to Registry
 		myIPAddress = clientSocket.getInetAddress().toString().split("/")[1];
 
+		// Spawn a thread to list for connections on a ServerSocket
+		messageReceiver = new MessagingNodeReceiver();
+		messageReceiver.start();
+		
 		// Build a new registration event
 		Event registerClient = ef.buildEvent(Protocol.OVERLAY_NODE_SENDS_REGISTRATION, 
-				myIPAddress.length()+";"+myIPAddress+";" + listenPort);
+				myIPAddress.length()+";"+myIPAddress+";" + messageReceiver.getPort());
 
 		// Finally, send the message to the server
 		try {
-			registrySender.sendData(registerClient.getBytes());
+			registryConnection.sendData(registerClient.getBytes());
 		} catch (IOException e) {
 			System.out.println("Error sending Registration Event to Registry: ");
 			e.printStackTrace();
@@ -112,34 +90,6 @@ public class MessagingNode implements Node{
 
 		// Initiate the command parser to accept commands from the Terminal
 		new InteractiveCommandParser(this);
-	}
-
-	public void listen(){
-		// "this" reference to use for spawning the listening Thread
-		final MessagingNode messageNode = this;
-		// "listener" Thread to accept incoming connections
-		Thread listener = new Thread(new Runnable() {
-			public void run() {
-				while(true){
-					try {
-
-						Socket client = svSocket.accept();
-						/*
-						 * The messaging node doesn't need to assign id's
-						 * for record tracking, so defaulting to 0 for connectionID
-						 */
-						synchronized(this){
-							Thread receive = new Thread(new TCPReceiverThread(0, client, messageNode));
-							receive.start();
-						}							
-
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}
-			}
-		});  
-		listener.start();
 	}
 
 	@Override
@@ -166,11 +116,7 @@ public class MessagingNode implements Node{
 		case Protocol.REGISTRY_REQUESTS_TRAFFIC_SUMMARY:
 			getStats();
 			break;
-
-		case Protocol.OVERLAY_NODE_SENDS_DATA:
-			dataFromMessageNode(event);
-			break;
-
+			
 		default:
 			System.out.println("Unrecognized event type received");
 
@@ -196,6 +142,7 @@ public class MessagingNode implements Node{
 
 			// Success!
 			myID = registerStatus.getStatus();
+			messageReceiver.setMyID(myID);
 			System.out.println("Registration successful, assigned id: " + myID);
 
 		} else {
@@ -275,13 +222,16 @@ public class MessagingNode implements Node{
 				}
 
 			}
+			
+			messageReceiver.setClientConnections(clientConnections);
+			
 		}
 
 		// Notify Registry of setup status
 		Event setupStatus = ef.buildEvent(Protocol.NODE_REPORTS_OVERLAY_SETUP_STATUS, status + ";" + statusMessage.length() + ";" + statusMessage);
 
 		try {
-			registrySender.sendData(setupStatus.getBytes());
+			registryConnection.sendData(setupStatus.getBytes());
 		} catch (IOException e) {
 			System.out.println("Error sending setup status to Registry: ");
 			e.printStackTrace();
@@ -320,20 +270,14 @@ public class MessagingNode implements Node{
 		 */
 		sendTracker 		= 0;
 		sendSummation 		= 0;
-		receiveTraker 		= 0;
-		receiveSummation 	= 0;
-		relayTracker 		= 0;
+		messageReceiver.resetCounters();
 
-		
+
 		for(int i = 0; i<numPackets; ++i){
 
 			// Get payload and select node to send to
 			payload = getPayload();
 			sink = selectRandomNode(rand);
-
-			// Debugging
-			if(debug)
-				System.out.println("Sending data to node: " + sink);
 
 			// Track the sent tracker
 			updateSent(payload);
@@ -352,9 +296,9 @@ public class MessagingNode implements Node{
 			}
 		}
 		// If here, task finished, notify Registry
-		Event finishStatus = ef.buildEvent(Protocol.OVERLAY_NODE_REPORTS_TASK_FINISHED, myIPAddress + ";" + listenPort + ";" + myID);
+		Event finishStatus = ef.buildEvent(Protocol.OVERLAY_NODE_REPORTS_TASK_FINISHED, myIPAddress + ";" + messageReceiver.getPort() + ";" + myID);
 		try {
-			registrySender.sendData(finishStatus.getBytes());
+			registryConnection.sendData(finishStatus.getBytes());
 		} catch (IOException e) {
 			System.out.println("Error sending task complete status to Registry: ");
 			e.printStackTrace();
@@ -365,53 +309,11 @@ public class MessagingNode implements Node{
 			System.out.println("Node " + myID + " finished task!");
 			System.out.println("**********************************");
 		}
-		
+
 	}
 
 	/**
-	 * Called when data is sent to this node
-	 * from another MessageNode
-	 * @param event
-	 */
-	public void dataFromMessageNode(Event data){
-		try {
-			OverlayNodeSendsData ovnData = new OverlayNodeSendsData(data.getBytes());
-			int sink = ovnData.getDestinationID();
-
-			if(sink == myID){
-
-				updateReceived(ovnData.getPayLoad());
-				ovnData.updateHopTrace(myID);
-
-				// Debugging
-				if(debug){
-					System.out.println("Received payload for node (" + myID + ")!!");
-					System.out.println("Trace: num hops = " + ovnData.getHopTraceLength() + ", trace route = " + ovnData.getHopTrace());
-					System.out.println();
-				}
-
-			}else{
-				updateRelayed();
-				// Update the dissemination for this packet
-				ovnData.updateHopLength();
-				ovnData.updateHopTrace(myID);
-				// Route the packet
-				
-				/************************	DEADLOCK HERE!?!?!?!?	*****************************/
-				/****	Getting deadlock on the send method, which uses TCPSender, why??	****/
-				routeData(sink, data);  				
-				
-			}
-
-		} catch (IOException e) {
-			System.out.println("Error getting data: ");
-			e.printStackTrace();
-		}
-	}
-
-	/**
-	 * Method used to route data to
-	 * nearest neighbor
+	 * Method used to route data to nearest neighbor
 	 * @param sink
 	 * @param data
 	 */
@@ -437,7 +339,8 @@ public class MessagingNode implements Node{
 		/*
 		 * If location is still -1, the destination node is behind us (looped around in the list)
 		 * Need to determine based on max(Math.abs(a,b))
-		 * Is there a better way to do this in a single loop iteration???
+		 * 
+		 * Note to self: Is there a better way to do this in a single loop iteration???
 		 */
 
 		if(location == -1){
@@ -455,6 +358,15 @@ public class MessagingNode implements Node{
 		else
 			System.out.println("Error, node not in list of neighbors.");
 	}
+	
+	private void sendDataToClient(int id, Event data){
+		try {
+			clientConnections.get(id).sendData(data.getBytes());
+		} catch (IOException e) {
+			System.out.println("Error sending payload to client: ");
+			e.printStackTrace();
+		}
+	}
 
 	private int selectRandomNode(Random rand){
 		int r = rand.nextInt(nodeList.length);
@@ -468,28 +380,10 @@ public class MessagingNode implements Node{
 		Random rand = new Random();		
 		return rand.nextInt();
 	}
-	
-	private void sendDataToClient(int id, Event data){
-		try {
-			clientConnections.get(id).sendData(data.getBytes());
-		} catch (IOException e) {
-			System.out.println("Error sending payload to client: ");
-			e.printStackTrace();
-		}
-	}
 
 	private synchronized void updateSent(long payload){
 		sendSummation += payload;
 		sendTracker++;
-	}
-
-	private synchronized void updateRelayed(){
-		relayTracker++;
-	}
-
-	private synchronized void updateReceived(int payload){
-		receiveTraker++;
-		receiveSummation += payload;
 	}
 
 	/*
@@ -497,10 +391,10 @@ public class MessagingNode implements Node{
 	 */
 
 	public void sendDeregistration(){
-		String message = myIPAddress.length() + ";" + myIPAddress + ";" + listenPort + ";" + myID;
+		String message = myIPAddress.length() + ";" + myIPAddress + ";" + messageReceiver.getPort() + ";" + myID;
 		Event e = ef.buildEvent(Protocol.OVERLAY_NODE_SENDS_DEREGISTRATION, message);
 		try {
-			registrySender.sendData(e.getBytes());
+			registryConnection.sendData(e.getBytes());
 		} catch (IOException e1) {
 			System.out.println("Error sending deregistration to Registry: ");
 			e1.printStackTrace();
@@ -542,10 +436,10 @@ public class MessagingNode implements Node{
 	private void getStats(){
 
 		Event reportSummary = ef.buildEvent(Protocol.OVERLAY_NODE_REPORTS_TRAFFIC_SUMMARY, myID 
-				+ ";" + sendTracker + ";" + relayTracker + ";" + sendSummation 
-				+ ";" + receiveTraker + ";" + receiveSummation);
+				+ ";" + sendTracker + ";" + messageReceiver.getRelayTracker() + ";" + sendSummation 
+				+ ";" + messageReceiver.getReceiveTraker() + ";" + messageReceiver.getReceiveSummation());
 		try {
-			registrySender.sendData(reportSummary.getBytes());
+			registryConnection.sendData(reportSummary.getBytes());
 		} catch (IOException e) {
 			System.out.println("Error sending report summary to Registry: ");
 			e.printStackTrace();
@@ -561,10 +455,10 @@ public class MessagingNode implements Node{
 		System.out.println();
 		System.out.println("Counters and diagnostics for node (" + myID + ")");
 		System.out.println("Total packets sent: " + sendTracker);
-		System.out.println("Total packets relayed: " + relayTracker);
+		System.out.println("Total packets relayed: " + messageReceiver.getRelayTracker());
 		System.out.println("Sum of packet data sent: " + sendSummation);
-		System.out.println("Total packets received: " + receiveTraker);
-		System.out.println("Sum of packets received: " + receiveSummation);
+		System.out.println("Total packets received: " + messageReceiver.getReceiveTraker());
+		System.out.println("Sum of packets received: " + messageReceiver.getReceiveSummation());
 		System.out.println();
 
 	}
@@ -576,24 +470,26 @@ public class MessagingNode implements Node{
 		if(debug){
 			System.out.println("Debugging disabled for this node");
 			debug = false;
+			messageReceiver.setDebug(debug);
 		}else{
 			System.out.println("Debugging enabled for this node");
 			debug = true;
+			messageReceiver.setDebug(debug);
 		}
-			
+
 	}
-	
+
 	/**
 	 * Close socket connections and exit
 	 */
 	public void close(){
 		try {
 			clientSocket.close();
-			svSocket.close();
 		} catch (IOException e) {
 			e.printStackTrace();
-		} finally {
 			System.exit(-1);
+		} finally {
+			messageReceiver.close();
 		}
 
 	}
