@@ -17,6 +17,7 @@
 
 package cs455.overlay.node;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -26,8 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import cs455.overlay.routing.RoutingEntry;
-import cs455.overlay.transport.TCPConnection;
-import cs455.overlay.transport.TCPSender;
+import cs455.overlay.transport.TCPReceiverThread;
 import cs455.overlay.wireformats.Event;
 import cs455.overlay.wireformats.OverlayNodeSendsData;
 import cs455.overlay.wireformats.Protocol;
@@ -35,7 +35,7 @@ import cs455.overlay.wireformats.Protocol;
 public class MessagingNodeReceiver extends Thread implements Node{
 
 	// Instance variables **************
-	private Map<Integer, TCPSender> clientConnections = new HashMap<Integer, TCPSender>();
+	private Map<Integer, DataOutputStream> clientConnections = new HashMap<Integer, DataOutputStream>();
 	private List<RoutingEntry> routingTable;
 	
 	private ServerSocket svSocket;
@@ -74,10 +74,12 @@ public class MessagingNodeReceiver extends Thread implements Node{
 				 * for record keeping, so defaulting to 0 for connectionID
 				 */
 				synchronized(this){
-					new TCPConnection(0, client, this);
+					Thread receiverThread = new Thread(new TCPReceiverThread(0, client, this));
+					receiverThread.start();
 				}							
 
 			} catch (IOException e) {
+				System.out.println("Messaging receiver for node " + myID + " had error listening: ");
 				e.printStackTrace();
 			}
 		}
@@ -85,17 +87,17 @@ public class MessagingNodeReceiver extends Thread implements Node{
 	
 	/************** TRACKER METHODS **************/
 	
-	public synchronized void resetCounters(){
+	public void resetCounters(){
 		receiveTraker = 0;
 		receiveSummation = 0;
 		relayTracker = 0;
 	}
 
-	private synchronized void updateRelayed(){
+	private void updateRelayed(){
 		relayTracker++;
 	}
 
-	private synchronized void updateReceived(int payload){
+	private void updateReceived(int payload){
 		receiveTraker++;
 		receiveSummation += payload;
 	}
@@ -120,8 +122,9 @@ public class MessagingNodeReceiver extends Thread implements Node{
 	 * need to synchronize access
 	 * @param event
 	 */
-	private synchronized void dataFromMessageNode(Event data){
+	private void dataFromMessageNode(Event data){
 		try {
+			
 			OverlayNodeSendsData ovnData = new OverlayNodeSendsData(data.getBytes());
 			int sink = ovnData.getDestinationID();
 
@@ -200,12 +203,19 @@ public class MessagingNodeReceiver extends Thread implements Node{
 			System.out.println("Error, node not in list of neighbors.");
 	}
 	
-	private synchronized void sendDataToClient(int id, Event data){
+	private void sendDataToClient(int id, Event data){
+		
+		//senders.submit(new SendMessage(id, data));
+		
 		try {
-			clientConnections.get(id).sendData(data.getBytes());
+			byte[] dataToSend = data.getBytes();
+			int dataLength = dataToSend.length;
+			clientConnections.get(id).writeInt(dataLength);
+			clientConnections.get(id).write(dataToSend, 0, dataLength);
+			//clientConnections.get(id).sendData(data.getBytes());
 		} catch (IOException e) {
-			System.out.println("Error sending payload to client: ");
-			e.printStackTrace();
+			System.out.println("(MessagingNodeReceiver) Error sending payload to client: ");
+			//e.printStackTrace();
 		}
 	}
 	
@@ -250,13 +260,6 @@ public class MessagingNodeReceiver extends Thread implements Node{
 	public boolean isDebug() {
 		return debug;
 	}
-
-	/**
-	 * @param clientConnections the clientConnections to set
-	 */
-	public void setClientConnections(Map<Integer, TCPSender> clientConnections) {
-		this.clientConnections = clientConnections;
-	}
 	
 	/**
 	 * @param routingTable the routingTable to set
@@ -268,8 +271,8 @@ public class MessagingNodeReceiver extends Thread implements Node{
 	/**
 	 * Sets up connections to the clients in the MessagingNode's routing table
 	 * Seems redundant, but sharing the connections established in the MessagingNode
-	 * caused slow down as multiple Threads were waiting to use the connetion. This allowed
-	 * a dramatic speed up, allowing multiple Threads to send aty the same time.
+	 * caused slow down as multiple Threads were waiting to use the connection. This allowed
+	 * a dramatic speed up, allowing multiple Threads to send at the same time.
 	 * @return
 	 */
 	public boolean setupForwardingConnections(){
@@ -279,7 +282,7 @@ public class MessagingNodeReceiver extends Thread implements Node{
 				Socket socket;
 				try {
 					socket = new Socket(node.getIpAddress(), node.getPortNum());
-					clientConnections.put(node.getNodeID(), new TCPSender(socket));
+					clientConnections.put(node.getNodeID(), new DataOutputStream(socket.getOutputStream()));
 				} catch (UnknownHostException e) {
 					status = false;
 				} catch (IOException e) {

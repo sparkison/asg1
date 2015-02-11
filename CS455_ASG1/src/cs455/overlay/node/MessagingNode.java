@@ -308,8 +308,8 @@ public class MessagingNode implements Node{
 				try {
 					clientConnections.get(sink).sendData(data.getBytes());
 				} catch (IOException e) {
-					System.out.println("Error sending payload to client: ");
-					e.printStackTrace();
+					System.out.println("(MessagingNode) Error sending payload to client: ");
+					//e.printStackTrace();
 				}
 			}else{
 				routeData(sink, data);
