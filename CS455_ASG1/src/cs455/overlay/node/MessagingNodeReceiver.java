@@ -204,9 +204,6 @@ public class MessagingNodeReceiver extends Thread implements Node{
 	}
 
 	private void sendDataToClient(int id, Event data){
-
-		//senders.submit(new SendMessage(id, data));
-
 		try {
 			clientConnections.get(id).sendData(data.getBytes());
 		} catch (IOException e) {
