@@ -77,7 +77,7 @@ public class MessagingNode implements Node{
 		// Send registration event to Registry
 		myIPAddress = clientSocket.getInetAddress().toString().split("/")[1];
 
-		// Spawn a thread to list for connections on a ServerSocket
+		// Spawn a thread to listen for connections on a ServerSocket
 		messageReceiver = new MessagingNodeReceiver();
 		messageReceiver.start();
 		
@@ -276,8 +276,8 @@ public class MessagingNode implements Node{
 		int sink;
 		Random rand = new Random();
 		/*
-		 * Setting hop to source initially, specs say not to, but makes 
-		 * it easier to track packet from source to sink...
+		 * Setting hop to source initially, specifications say not to, but makes 
+		 * it easier to track packet from source to sink and ensure proper routing.
 		 * hopLength, however, is the actual number of intermediate hops
 		 * from source to sink
 		 */
@@ -288,8 +288,8 @@ public class MessagingNode implements Node{
 		 * Set/Reset the tracker variables
 		 * so the "start" command can be issued multiple times
 		 */
-		sendTracker 		= 0;
-		sendSummation 		= 0;
+		sendTracker = 0;
+		sendSummation = 0;
 		messageReceiver.resetCounters();
 
 

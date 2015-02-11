@@ -136,6 +136,7 @@ public class Registry implements Node{
 
 	/**
 	 * Called when overlay node reports task complete
+	 * 
 	 * Synchronized to ensure no concurrency issues as multiple
 	 * messaging nodes could be sending at the same time
 	 * @param event
@@ -163,6 +164,7 @@ public class Registry implements Node{
 
 	/**
 	 * Called when overlay node reports summary data
+	 * 
 	 * Synchronized to ensure no concurrency issues as multiple
 	 * messaging nodes could be sending at the same time
 	 * @param event
@@ -203,6 +205,9 @@ public class Registry implements Node{
 
 	/**
 	 * Called when an overlay node de-registers with the Registry
+	 * 
+	 * Synchronized to ensure no concurrency issues as multiple
+	 * messaging nodes could be sending at the same time
 	 * @param event
 	 * @param id
 	 */
@@ -228,6 +233,9 @@ public class Registry implements Node{
 	
 	/**
 	 * Called when an overlay node request registration with the Registry
+	 * 
+	 * Synchronized to ensure no concurrency issues as multiple
+	 * messaging nodes could be sending at the same time
 	 * @param event
 	 * @param id
 	 */
