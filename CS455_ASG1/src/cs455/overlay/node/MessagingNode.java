@@ -222,8 +222,22 @@ public class MessagingNode implements Node{
 				}
 
 			}
-			
-			messageReceiver.setClientConnections(clientConnections);
+			/*
+			 * Connect to clients with the MessagingNodeReceiver as well,
+			 * Rather than share the same connection, this allows us
+			 * to setup multiple input/output streams so we can send messages
+			 * concurrently with both the MessagingNode and the MessagingNodeReceiver
+			 * 
+			 * Speed up was dramatic using this method!!
+			 * 
+			 * Connections are also cached, so if "start" command ran multiple times
+			 * connections will not be re-established unless the overlay has been updated
+			 */
+			messageReceiver.setRoutingTable(routingTable);
+			if(!messageReceiver.setupForwardingConnections()){
+				statusMessage = "Setup failed";
+				status = -1;
+			}
 			
 		}
 

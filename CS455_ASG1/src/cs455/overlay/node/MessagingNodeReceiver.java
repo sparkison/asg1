@@ -3,9 +3,12 @@ package cs455.overlay.node;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import cs455.overlay.routing.RoutingEntry;
 import cs455.overlay.transport.TCPConnection;
 import cs455.overlay.transport.TCPSender;
 import cs455.overlay.wireformats.Event;
@@ -16,6 +19,8 @@ public class MessagingNodeReceiver extends Thread implements Node{
 
 	// Instance variables **************
 	private Map<Integer, TCPSender> clientConnections = new HashMap<Integer, TCPSender>();
+	private List<RoutingEntry> routingTable;
+	
 	private ServerSocket svSocket;
 	private int port;
 	private int receiveTraker;
@@ -23,7 +28,6 @@ public class MessagingNodeReceiver extends Thread implements Node{
 	private int relayTracker;
 	private int myID;
 	private boolean debug = false;
-	
 	
 	// MessagingNodeReceiver constructor
 	public MessagingNodeReceiver(){
@@ -179,11 +183,7 @@ public class MessagingNodeReceiver extends Thread implements Node{
 			System.out.println("Error, node not in list of neighbors.");
 	}
 	
-	private void sendDataToClient(int id, Event data){
-		
-		/************************	DEADLOCK HERE!?!?!?!?	*****************************/
-		/****	Getting deadlock on the send method, which uses TCPSender, why??	****/
-		
+	private synchronized void sendDataToClient(int id, Event data){
 		try {
 			clientConnections.get(id).sendData(data.getBytes());
 		} catch (IOException e) {
@@ -239,6 +239,39 @@ public class MessagingNodeReceiver extends Thread implements Node{
 	 */
 	public void setClientConnections(Map<Integer, TCPSender> clientConnections) {
 		this.clientConnections = clientConnections;
+	}
+	
+	/**
+	 * @param routingTable the routingTable to set
+	 */
+	public void setRoutingTable(List<RoutingEntry> routingTable) {
+		this.routingTable = routingTable;
+	}
+	
+	/**
+	 * Sets up connections to the clients in the MessagingNode's routing table
+	 * Seems redundant, but sharing the connections established in the MessagingNode
+	 * caused slow down as multiple Threads were waiting to use the connetion. This allowed
+	 * a dramatic speed up, allowing multiple Threads to send aty the same time.
+	 * @return
+	 */
+	public boolean setupForwardingConnections(){
+		boolean status = true;
+		if(clientConnections == null || clientConnections.isEmpty()){
+			for(RoutingEntry node : routingTable){
+				Socket socket;
+				try {
+					socket = new Socket(node.getIpAddress(), node.getPortNum());
+					clientConnections.put(node.getNodeID(), new TCPSender(socket));
+				} catch (UnknownHostException e) {
+					status = false;
+				} catch (IOException e) {
+					status = false;
+				}
+
+			}
+		}
+		return status;
 	}
 
 	/**

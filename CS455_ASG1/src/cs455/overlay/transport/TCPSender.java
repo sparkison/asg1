@@ -1,5 +1,6 @@
 package cs455.overlay.transport;
 
+import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
@@ -14,21 +15,20 @@ public class TCPSender {
 	public TCPSender(Socket socket) throws IOException {
 		this.socket = socket;
 		sendLock = new ReentrantLock();
-		dout = new DataOutputStream(socket.getOutputStream());
+		dout = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
 	}
+	
 	public void sendData(byte[] dataToSend) throws IOException {
-		/*
-		 * Needs to be synchronized as many clients
-		 * could be sending data to a given node at a time
-		 */
+		try {
+	        sendLock.lock();
+	        int dataLength = dataToSend.length;
+	        dout.writeInt(dataLength);
+	        dout.write(dataToSend, 0, dataLength);
+	        dout.flush();
+	    }
+	    finally {
+	         sendLock.unlock();
+	    }
 		
-		sendLock.lock();
-		
-		int dataLength = dataToSend.length;
-		dout.writeInt(dataLength);
-		dout.write(dataToSend, 0, dataLength);
-		dout.flush();
-		
-		sendLock.unlock();
 	}
 }

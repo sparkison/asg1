@@ -124,7 +124,6 @@ public class Registry implements Node{
 		default:
 			System.out.println("Unrecognized event type received");
 		}
-		
 	}// END onEvent **************
 
 	/******************************************
@@ -428,6 +427,7 @@ public class Registry implements Node{
 			svSocket.close();
 		} catch (IOException e) {
 			e.printStackTrace();
+		} finally {
 			System.exit(-1);
 		}
 	}
