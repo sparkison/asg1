@@ -40,24 +40,21 @@ public class TCPReceiverThread extends Thread{
 		while (socket != null) {
 			try {
 
-				synchronized(this){
-					// Get data, and send to node for processing
-					int dataLength = din.readInt();
-					byte[] data = new byte[dataLength];
-					din.readFully(data, 0, dataLength);
-					/*
-					 * Build Event to send to receiver
-					 * this will be destined for the end
-					 * that initiated the ServerSocket.
-					 * Passing id with message so we know
-					 * where the message originated from
-					 */
+				// Get data, and send to node for processing
+				int dataLength = din.readInt();
+				byte[] data = new byte[dataLength];
+				din.readFully(data, 0, dataLength);
+				/*
+				 * Build Event to send to receiver
+				 * this will be destined for the end
+				 * that initiated the ServerSocket.
+				 * Passing id with message so we know
+				 * where the message originated from
+				 */
 
-					Event e = ef.getEvent(data);
-					//System.out.println("\nSending: " + e);
-					node.onEvent(e, connectionId);	
-				}
-				
+				Event e = ef.getEvent(data);
+				//System.out.println("\nSending: " + e);
+				node.onEvent(e, connectionId);	
 
 			} catch (SocketException se) {
 				System.out.println(se.getMessage());

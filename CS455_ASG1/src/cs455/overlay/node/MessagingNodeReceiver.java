@@ -17,7 +17,6 @@
 
 package cs455.overlay.node;
 
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -28,6 +27,7 @@ import java.util.Map;
 
 import cs455.overlay.routing.RoutingEntry;
 import cs455.overlay.transport.TCPReceiverThread;
+import cs455.overlay.transport.TCPSender;
 import cs455.overlay.wireformats.Event;
 import cs455.overlay.wireformats.OverlayNodeSendsData;
 import cs455.overlay.wireformats.Protocol;
@@ -35,9 +35,9 @@ import cs455.overlay.wireformats.Protocol;
 public class MessagingNodeReceiver extends Thread implements Node{
 
 	// Instance variables **************
-	private Map<Integer, DataOutputStream> clientConnections = new HashMap<Integer, DataOutputStream>();
+	private Map<Integer, TCPSender> clientConnections = new HashMap<Integer, TCPSender>();
 	private List<RoutingEntry> routingTable;
-	
+
 	private ServerSocket svSocket;
 	private int port;
 	private int receiveTraker;
@@ -45,7 +45,7 @@ public class MessagingNodeReceiver extends Thread implements Node{
 	private int relayTracker;
 	private int myID;
 	private boolean debug = false;
-	
+
 	// MessagingNodeReceiver constructor
 	public MessagingNodeReceiver(){
 		try {
@@ -60,7 +60,7 @@ public class MessagingNodeReceiver extends Thread implements Node{
 			close();
 		}
 	}
-	
+
 	/**
 	 * Start listening for new connections
 	 */
@@ -84,9 +84,9 @@ public class MessagingNodeReceiver extends Thread implements Node{
 			}
 		}
 	}
-	
+
 	/************** TRACKER METHODS **************/
-	
+
 	public void resetCounters(){
 		receiveTraker = 0;
 		receiveSummation = 0;
@@ -101,9 +101,9 @@ public class MessagingNodeReceiver extends Thread implements Node{
 		receiveTraker++;
 		receiveSummation += payload;
 	}
-	
+
 	/************ END TRACKER METHODS ************/
-	
+
 	@Override
 	public void onEvent(Event event, int id) {
 		if(event.getType() == Protocol.OVERLAY_NODE_SENDS_DATA){
@@ -112,9 +112,9 @@ public class MessagingNodeReceiver extends Thread implements Node{
 			System.out.println("Node received unknown event type.");
 		}
 	}
-	
+
 	/************** DATA ROUTING METHODS **************/
-	
+
 	/**
 	 * Called when data is sent to this node
 	 * from another MessagingNode, this could be
@@ -124,7 +124,7 @@ public class MessagingNodeReceiver extends Thread implements Node{
 	 */
 	private void dataFromMessageNode(Event data){
 		try {
-			
+
 			OverlayNodeSendsData ovnData = new OverlayNodeSendsData(data.getBytes());
 			int sink = ovnData.getDestinationID();
 
@@ -155,7 +155,7 @@ public class MessagingNodeReceiver extends Thread implements Node{
 			e.printStackTrace();
 		}
 	}
-	
+
 	/**
 	 * Method used to route data to nearest neighbor
 	 * @param sink
@@ -202,23 +202,19 @@ public class MessagingNodeReceiver extends Thread implements Node{
 		else
 			System.out.println("Error, node not in list of neighbors.");
 	}
-	
+
 	private void sendDataToClient(int id, Event data){
-		
+
 		//senders.submit(new SendMessage(id, data));
-		
+
 		try {
-			byte[] dataToSend = data.getBytes();
-			int dataLength = dataToSend.length;
-			clientConnections.get(id).writeInt(dataLength);
-			clientConnections.get(id).write(dataToSend, 0, dataLength);
-			//clientConnections.get(id).sendData(data.getBytes());
+			clientConnections.get(id).sendData(data.getBytes());
 		} catch (IOException e) {
 			System.out.println("(MessagingNodeReceiver) Error sending payload to client: ");
 			//e.printStackTrace();
 		}
 	}
-	
+
 	/**
 	 * @return the port
 	 */
@@ -260,14 +256,14 @@ public class MessagingNodeReceiver extends Thread implements Node{
 	public boolean isDebug() {
 		return debug;
 	}
-	
+
 	/**
 	 * @param routingTable the routingTable to set
 	 */
 	public void setRoutingTable(List<RoutingEntry> routingTable) {
 		this.routingTable = routingTable;
 	}
-	
+
 	/**
 	 * Sets up connections to the clients in the MessagingNode's routing table
 	 * Seems redundant, but sharing the connections established in the MessagingNode
@@ -282,7 +278,7 @@ public class MessagingNodeReceiver extends Thread implements Node{
 				Socket socket;
 				try {
 					socket = new Socket(node.getIpAddress(), node.getPortNum());
-					clientConnections.put(node.getNodeID(), new DataOutputStream(socket.getOutputStream()));
+					clientConnections.put(node.getNodeID(), new TCPSender(socket));
 				} catch (UnknownHostException e) {
 					status = false;
 				} catch (IOException e) {
