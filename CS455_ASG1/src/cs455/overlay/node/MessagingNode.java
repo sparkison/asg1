@@ -1,3 +1,9 @@
+/**
+ * @author Shaun Parkison (shaunpa)
+ * Colorado State University
+ * CS455 - Dist. Systems
+ */
+
 package cs455.overlay.node;
 
 import java.io.IOException;
@@ -503,6 +509,7 @@ public class MessagingNode implements Node{
 			e.printStackTrace();
 			System.exit(-1);
 		} finally {
+			// Close the receiver, which contains the ServerSocket for this Node
 			messageReceiver.close();
 		}
 

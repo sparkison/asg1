@@ -1,3 +1,20 @@
+/**
+ * @author Shaun Parkison (shaunpa)
+ * Colorado State University
+ * CS455 - Dist. Systems
+ * 
+ * @info this class is used as an extenstion
+ * to the MessagingNode class to help decompose
+ * the problem of sending and receiving messages
+ * 
+ * The MessagingNode now only needs to deal with
+ * sending messages to other clients, and sending
+ * and receiving messages from the Registry, this class
+ * accepts incoming connections from other MessagingNodes
+ * and deals with accepting data packets, and forwarding
+ * them if needed.
+ */
+
 package cs455.overlay.node;
 
 import java.io.IOException;
@@ -307,4 +324,4 @@ public class MessagingNodeReceiver extends Thread implements Node{
 		}
 	}
 
-}
+}// ************** END MessagingNodeReceiver class **************
