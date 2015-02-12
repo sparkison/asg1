@@ -122,15 +122,15 @@ public class OverlayNodeSendsData implements Event{
 		return hopTrace;
 	}
 	
-	public void updateHopTrace(int hop){
+	public synchronized void updateHopTrace(int hop){
 		if(hopTrace.equals(" "))
 			hopTrace = "" + hop;
 		else
 			hopTrace += ("->" + hop);
 	}
 	
-	public void updateHopLength(){
-		hopTraceLength += 1;
+	public synchronized void updateHopLength(){
+		hopTraceLength++;
 	}
 
 	/* (non-Javadoc)

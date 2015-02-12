@@ -286,17 +286,6 @@ public class MessagingNode extends Thread implements Node{
 		// if new routing table sent, initialize/re-initialize connections
 		clientConnections.clear();
 
-	}
-
-	/**
-	 * Method called when Registry request task initiate
-	 * @param event
-	 */
-	private void startTask(Event event){
-
-		RegistryRequestsTaskInitiate taskInitiate = (RegistryRequestsTaskInitiate) event;
-		int numPackets = taskInitiate.getNumPackets();
-
 		/*
 		 * Status message variables
 		 * Optimistic by default, change if
@@ -338,21 +327,17 @@ public class MessagingNode extends Thread implements Node{
 			e.printStackTrace();
 		}
 
-		// If status is -1 we had an error setting up connections, don't initiate task!
-		if(status != -1){
-			sendDataToNodes(numPackets);
-		}else{
-			System.out.println("Error setting up connections with clients, unable to start task.");
-		}
-
 	}
 
 	/**
-	 * Helper method, initiates the loop and sends
-	 * random payloads to random nodes
-	 * @param numPackets
+	 * Method called when Registry request task initiate
+	 * @param event
 	 */
-	private void sendDataToNodes(int numPackets){
+	private void startTask(Event event){
+
+		RegistryRequestsTaskInitiate taskInitiate = (RegistryRequestsTaskInitiate) event;
+		int numPackets = taskInitiate.getNumPackets();
+
 		int payload;
 		int sink;
 		Random rand = new Random();

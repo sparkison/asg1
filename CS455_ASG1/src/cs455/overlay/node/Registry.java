@@ -191,11 +191,12 @@ public class Registry implements Node{
 
 		NodeReportsOverlaySetupStatus nodeSetupStatus = (NodeReportsOverlaySetupStatus) event;
 		int status = nodeSetupStatus.getStatus();
-		
+				
 		if(status != -1){
 			setupSuccessCount++;
-			if(setupSuccessCount == nodeRegistered.size())
-				System.out.println("Registry now ready to initiate tasks.");
+			if(setupSuccessCount == nodeRegistered.size()){
+				System.out.println("Overlay setup complete with NR " + NR + ". Registry now ready to initiate tasks.");
+			}
 		}else{
 			// Setup failed
 			// Routing table is now void, need to rebuild
@@ -373,8 +374,6 @@ public class Registry implements Node{
 					e1.printStackTrace();
 				}
 			}
-
-			System.out.println("Overlay setup complete with NR " + NR);
 
 		}else{
 			System.out.println("Unable to setup overlay, you have " + nodeRegistered.size() + " node(s) registerted, need a minimum of two.");
