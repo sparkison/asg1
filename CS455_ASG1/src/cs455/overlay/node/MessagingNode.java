@@ -5,11 +5,11 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Random;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import cs455.overlay.routing.RoutingEntry;
 import cs455.overlay.transport.TCPReceiverThread;
@@ -28,7 +28,7 @@ public class MessagingNode extends Thread implements Node{
 
 	// Instance variables **************
 	private Map<Integer, TCPSender> clientConnections = new HashMap<Integer, TCPSender>();
-	private BlockingQueue<OverlayNodeSendsData> relayQueue = new LinkedBlockingQueue<OverlayNodeSendsData>();
+	private Queue<OverlayNodeSendsData> relayQueue = new LinkedList<OverlayNodeSendsData>();
 	private EventFactory ef = EventFactory.getInstance();
 	private String myIPAddress;
 	private int myID;
@@ -145,6 +145,17 @@ public class MessagingNode extends Thread implements Node{
 				catch (IOException e) {
 					System.out.println("Error sending relay message to client: ");
 					System.err.println(e.getMessage());
+				}
+			}else{
+				/*
+				 * If here, queue is empty, pause for
+				 * 300 milliseconds to prevent while loop from
+				 * eating up processor cycles
+				 */
+				try {
+					Thread.sleep(300);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
 				}
 			}
 		}
@@ -489,8 +500,8 @@ public class MessagingNode extends Thread implements Node{
 	}
 
 	private synchronized void updateSent(long payload){
-		sendSummation += payload;
 		sendTracker++;
+		sendSummation += payload;
 	}
 
 	private synchronized void updateRelayed(){
