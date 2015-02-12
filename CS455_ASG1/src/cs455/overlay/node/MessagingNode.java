@@ -5,11 +5,11 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Random;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import cs455.overlay.routing.RoutingEntry;
 import cs455.overlay.transport.TCPReceiverThread;
@@ -28,7 +28,7 @@ public class MessagingNode extends Thread implements Node{
 
 	// Instance variables **************
 	private Map<Integer, TCPSender> clientConnections = new HashMap<Integer, TCPSender>();
-	private Queue<OverlayNodeSendsData> relayQueue = new LinkedList<OverlayNodeSendsData>();
+	private BlockingQueue<OverlayNodeSendsData> relayQueue = new LinkedBlockingQueue<OverlayNodeSendsData>();
 	private EventFactory ef = EventFactory.getInstance();
 	private String myIPAddress;
 	private int myID;
@@ -147,17 +147,6 @@ public class MessagingNode extends Thread implements Node{
 					System.err.println(e.getMessage());
 				}
 			}
-			if(relayQueue.size() == 0){
-				/*
-				 * If the queue is empty don't continue polling
-				 * Pause for 500 milliseconds to keep from hogging the processor cycles
-				 * Not worried about synchronization here, since it's OK for
-				 * the queue to partially fill while pausing
-				 */
-				try {
-					Thread.sleep(500);
-				} catch (InterruptedException e) {}
-			}
 		}
 	}
 
@@ -184,9 +173,7 @@ public class MessagingNode extends Thread implements Node{
 							receive.start();
 						}							
 
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
+					} catch (IOException e) {}
 				}
 			}
 		});  
