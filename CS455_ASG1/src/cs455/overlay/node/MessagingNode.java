@@ -5,11 +5,11 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Random;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import cs455.overlay.routing.RoutingEntry;
 import cs455.overlay.transport.TCPReceiverThread;
@@ -28,7 +28,7 @@ public class MessagingNode extends Thread implements Node{
 
 	// Instance variables **************
 	private Map<Integer, TCPSender> clientConnections = new HashMap<Integer, TCPSender>();
-	private Queue<OverlayNodeSendsData> relayQueue = new LinkedList<OverlayNodeSendsData>();
+	private BlockingQueue<OverlayNodeSendsData> relayQueue = new LinkedBlockingQueue<OverlayNodeSendsData>();
 	private EventFactory ef = EventFactory.getInstance();
 	private String myIPAddress;
 	private int myID;
@@ -129,34 +129,21 @@ public class MessagingNode extends Thread implements Node{
 	public void run(){
 		while(true){
 			OverlayNodeSendsData relayMsg;
-			synchronized (relayQueue){
-				relayMsg = relayQueue.poll();
+			try {
+				relayMsg = relayQueue.take();
+				updateRelayed();
+				// Update the dissemination for this packet
+				relayMsg.updateHopLength();
+				relayMsg.updateHopTrace(myID);
+				int sink = relayMsg.getDestinationID();
+				int nearestNeighbor = getNearestNeighbor(sink);
+				clientConnections.get(nearestNeighbor).sendData(relayMsg.getBytes());
 			}
-			if (relayMsg != null){
-				try {
-					updateRelayed();
-					// Update the dissemination for this packet
-					relayMsg.updateHopLength();
-					relayMsg.updateHopTrace(myID);
-					int sink = relayMsg.getDestinationID();
-					int nearestNeighbor = getNearestNeighbor(sink);
-					clientConnections.get(nearestNeighbor).sendData(relayMsg.getBytes());
-				}
-				catch (IOException e) {
-					System.out.println("Error sending relay message to client: ");
-					System.err.println(e.getMessage());
-				}
-			}else{
-				/*
-				 * If here, queue is empty, pause for
-				 * 300 milliseconds to prevent while loop from
-				 * eating up processor cycles
-				 */
-				try {
-					Thread.sleep(300);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
+			catch (IOException e) {
+				System.out.println("Error sending relay message to client: ");
+				System.err.println(e.getMessage());
+			} catch (InterruptedException e) {
+				System.err.println(e.getMessage());
 			}
 		}
 	}
@@ -421,10 +408,11 @@ public class MessagingNode extends Thread implements Node{
 
 			}else{
 				// Route the packet
-				synchronized (relayQueue){
-					relayQueue.add(relayMsg);
+				try {
+					relayQueue.put(relayMsg);
+				} catch (InterruptedException e) {
+					System.err.println(e.getMessage());
 				}
-
 			}
 
 		} catch (IOException e) {
