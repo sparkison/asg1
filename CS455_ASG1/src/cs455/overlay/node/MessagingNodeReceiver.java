@@ -51,7 +51,7 @@ public class MessagingNodeReceiver extends Thread implements Node{
 		try {
 			// Open ServerSocket to accept data from other Messaging Nodes
 			this.svSocket = new ServerSocket(0);
-			// Set listening port to pass to Registry
+			// Get listening port to pass to Registry
 			this.port = svSocket.getLocalPort();
 			// Display success message
 			System.out.println("Client listening for connections on port: " + port);

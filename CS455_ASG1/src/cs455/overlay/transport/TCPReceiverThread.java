@@ -1,5 +1,6 @@
 package cs455.overlay.transport;
 
+import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.Socket;
@@ -29,7 +30,7 @@ public class TCPReceiverThread extends Thread{
 		this.connectionId = id;
 		this.socket = socket;
 		this.node = node;
-		din = new DataInputStream(socket.getInputStream());
+		din = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 	}
 
 	/**

@@ -41,6 +41,7 @@ public class Registry implements Node{
 	private EventFactory ef = EventFactory.getInstance();
 	private RoutingTable routingTable;
 	private ServerSocket svSocket;
+	private int setupSuccessCount = 0;
 	private int NR = 3;
 
 	// Registry constructor
@@ -102,15 +103,15 @@ public class Registry implements Node{
 		switch (event.getType()){
 
 		case Protocol.OVERLAY_NODE_SENDS_REGISTRATION:
-			registerNode(event, id);
+			nodeSendsRegistration(event, id);
 			break;
 
 		case Protocol.OVERLAY_NODE_SENDS_DEREGISTRATION:
-			deRegisterNode(event, id);
+			nodeSendsDeRegisterNode(event, id);
 			break;
 
 		case Protocol.NODE_REPORTS_OVERLAY_SETUP_STATUS:
-			getSetupStatus(event, id);
+			nodeReportsSetupStatus(event, id);
 			break;
 
 		case Protocol.OVERLAY_NODE_REPORTS_TASK_FINISHED:
@@ -145,15 +146,15 @@ public class Registry implements Node{
 		OverlayNodeReportsTaskFinished taskFinish = (OverlayNodeReportsTaskFinished) event;
 		nodesCompleted.add(taskFinish);
 		if(nodesCompleted.size() == nodeRegistered.size()){
-			System.out.print("all nodes reported task complete waiting 5 seconds to request summary...");
+			System.out.print("all nodes reported task complete waiting 10 seconds to request summary...");
 			// All nodes have reported task finish
 			try {
 				/*
-				 * Sleep for 5 seconds to allow threads time to finish up
+				 * Sleep for 10 seconds to allow threads time to finish up
 				 * since it's possible clients have finished sending, but there
 				 * may still be threads outstanding sending messages...
 				 */
-				Thread.sleep(5000);
+				Thread.sleep(10000);
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
 			}
@@ -186,13 +187,15 @@ public class Registry implements Node{
 	 * messaging nodes could be sending at the same time
 	 * @param event
 	 */
-	private synchronized void getSetupStatus(Event event, int id){
+	private synchronized void nodeReportsSetupStatus(Event event, int id){
 
 		NodeReportsOverlaySetupStatus nodeSetupStatus = (NodeReportsOverlaySetupStatus) event;
 		int status = nodeSetupStatus.getStatus();
-
+		
 		if(status != -1){
-			// Setup successful, status = nodeID
+			setupSuccessCount++;
+			if(setupSuccessCount == nodeRegistered.size())
+				System.out.println("Registry now ready to initiate tasks.");
 		}else{
 			// Setup failed
 			// Routing table is now void, need to rebuild
@@ -211,7 +214,7 @@ public class Registry implements Node{
 	 * @param event
 	 * @param id
 	 */
-	private synchronized void deRegisterNode(Event event, int id){
+	private synchronized void nodeSendsDeRegisterNode(Event event, int id){
 		int status = -1;
 		OverlayNodeSendsDeregistration deregister = (OverlayNodeSendsDeregistration) event;
 		if(nodeRegistered.remove(deregister.getNodeID()) != null){
@@ -239,7 +242,7 @@ public class Registry implements Node{
 	 * @param event
 	 * @param id
 	 */
-	private synchronized void registerNode(Event event, int id){
+	private synchronized void nodeSendsRegistration(Event event, int id){
 
 		/*
 		 * Register Client node
@@ -319,6 +322,8 @@ public class Registry implements Node{
 	public void requestTaskInitiate(int numMessages){
 		if(routingTable == null || routingTable.isEmpty()){
 			System.out.println("The overlay has not yet been setup, please use \"setup-overlay [number-of-messages]\" command first to setup the overlay");
+		}else if(setupSuccessCount != nodeRegistered.size()){
+			System.out.println("Unable to start task, not all nodes have reported succesful startup yet.");
 		}else{
 			// Reset completed and summary for new round
 			nodesCompleted.clear();
@@ -444,8 +449,10 @@ public class Registry implements Node{
 	 * Clear the routing table
 	 */
 	private void resetRoutingTable(){
-		if(routingTable != null)
+		if(routingTable != null){
 			routingTable.clear();
+			setupSuccessCount = 0;
+		}
 	}
 
 }// ************** END Registry class **************
