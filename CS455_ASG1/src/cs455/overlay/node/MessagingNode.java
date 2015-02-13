@@ -406,9 +406,7 @@ public class MessagingNode implements Node{
 			}
 		}else{
 			// Route the packet
-			synchronized(relayQueue){
-				relayQueue.add(relayMsg);
-			}
+			relayQueue.add(relayMsg);
 		}
 	}
 
