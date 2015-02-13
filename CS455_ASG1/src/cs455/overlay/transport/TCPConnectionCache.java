@@ -30,7 +30,7 @@ public class TCPConnectionCache {
 	public InetAddress getInetAddress(int id){
 		TCPConnection connection = registeredNodes.get(id);
 		Socket socket = connection.getSocket();
-		return socket.getInetAddress();
+		return socket.getLocalAddress();
 	}
 
 	public TCPConnection getConnection(int id){

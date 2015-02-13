@@ -261,7 +261,8 @@ public class Registry implements Node{
 		// Get the InetAddress of the sender (using split to get just the IP, ignoring the hostname)
 		InetAddress inet = connectionCache.getInetAddress(id);
 		String compare = inet.toString().split("/")[1];
-
+		System.out.println(compare);
+		
 		// Get object so we can see the data
 		OverlayNodeSendsRegistration clientNode = (OverlayNodeSendsRegistration) event;
 

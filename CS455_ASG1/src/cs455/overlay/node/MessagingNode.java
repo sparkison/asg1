@@ -102,6 +102,7 @@ public class MessagingNode implements Node{
 	private void intializeMessageNode(){
 		// Send registration event to Registry
 		myIPAddress = clientSocket.getLocalAddress().toString().split("/")[1];
+		System.out.println(myIPAddress);
 
 		// Build a new registration event
 		Event registerClient = ef.buildEvent(Protocol.OVERLAY_NODE_SENDS_REGISTRATION, 
@@ -138,7 +139,9 @@ public class MessagingNode implements Node{
 						relayMsg.updateHopTrace(myID);
 						int sink = relayMsg.getDestinationID();
 						int nearestNeighbor = getNearestNeighbor(sink);
-						clientConnections.get(nearestNeighbor).sendData(relayMsg.getBytes());
+						synchronized(clientConnections){
+							clientConnections.get(nearestNeighbor).sendData(relayMsg.getBytes());
+						}
 					}
 					catch (IOException e) {
 						System.out.println("Error sending relay message to client: ");
@@ -392,7 +395,7 @@ public class MessagingNode implements Node{
 	public void dataFromMessageNode(Event data){
 		OverlayNodeSendsData relayMsg = (OverlayNodeSendsData) data;
 		int sink = relayMsg.getDestinationID();
-		
+
 		if(sink == myID){
 			updateReceived(relayMsg.getPayLoad());
 			relayMsg.updateHopTrace(myID);
@@ -455,11 +458,13 @@ public class MessagingNode implements Node{
 	 * Simple helper method to send data to a client
 	 */
 	private void sendDataToClient(int id, Event data){
-		try {
-			clientConnections.get(id).sendData(data.getBytes());
-		} catch (IOException e) {
-			System.out.println("Error sending payload to client: ");
-			e.printStackTrace();
+		synchronized(clientConnections){
+			try {
+				clientConnections.get(id).sendData(data.getBytes());
+			} catch (IOException e) {
+				System.out.println("Error sending payload to client: ");
+				e.printStackTrace();
+			}
 		}
 	}
 
