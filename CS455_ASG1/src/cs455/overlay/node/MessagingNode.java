@@ -102,7 +102,6 @@ public class MessagingNode implements Node{
 	private void intializeMessageNode(){
 		// Send registration event to Registry
 		myIPAddress = clientSocket.getLocalAddress().toString().split("/")[1];
-		System.out.println(myIPAddress);
 
 		// Build a new registration event
 		Event registerClient = ef.buildEvent(Protocol.OVERLAY_NODE_SENDS_REGISTRATION, 
