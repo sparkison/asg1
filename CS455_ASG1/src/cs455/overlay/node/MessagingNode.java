@@ -102,7 +102,7 @@ public class MessagingNode extends Thread implements Node{
 
 	private void intializeMessageNode(){
 		// Send registration event to Registry
-		myIPAddress = clientSocket.getInetAddress().toString().split("/")[1];
+		myIPAddress = clientSocket.getLocalAddress().toString().split("/")[1];
 
 		// Build a new registration event
 		Event registerClient = ef.buildEvent(Protocol.OVERLAY_NODE_SENDS_REGISTRATION, 
@@ -268,8 +268,6 @@ public class MessagingNode extends Thread implements Node{
 		RegistrySendsNodeManifest nodeManifest = (RegistrySendsNodeManifest) event;
 		routingTable = nodeManifest.getRoutingEntries();
 		nodeList = nodeManifest.getAllNodes();
-		// if new routing table sent, initialize/re-initialize connections
-		clientConnections.clear();
 
 		/*
 		 * Status message variables
@@ -281,30 +279,27 @@ public class MessagingNode extends Thread implements Node{
 		int status = myID;
 
 		// Connect to clients, based on this nodes routing table
-		if(clientConnections == null || clientConnections.isEmpty()){
-			for(RoutingEntry node : routingTable){
-				Socket socket;
-				try {
-					socket = new Socket(node.getIpAddress(), node.getPortNum());
-					clientConnections.put(node.getNodeID(), new TCPSender(socket));
-				} catch (UnknownHostException e) {
-					statusMessage = "Setup failed";
-					status = -1;
-					System.out.println("Error connecting to client, unknown host error occurred: ");
-					e.printStackTrace();
-				} catch (IOException e) {
-					statusMessage = "Setup failed";
-					status = -1;
-					System.out.println("Error connecting to client: ");
-					e.printStackTrace();
-				}
-
+		for(RoutingEntry node : routingTable){
+			Socket socket;
+			try {
+				socket = new Socket(node.getIpAddress(), node.getPortNum());
+				clientConnections.put(node.getNodeID(), new TCPSender(socket));
+			} catch (UnknownHostException e) {
+				statusMessage = "Setup failed";
+				status = -1;
+				System.out.println("Error connecting to client, unknown host error occurred: ");
+				e.printStackTrace();
+			} catch (IOException e) {
+				statusMessage = "Setup failed";
+				status = -1;
+				System.out.println("Error connecting to client: ");
+				e.printStackTrace();
 			}
+
 		}
 
 		// Notify Registry of setup status
 		Event setupStatus = ef.buildEvent(Protocol.NODE_REPORTS_OVERLAY_SETUP_STATUS, status + ";" + statusMessage.length() + ";" + statusMessage);
-
 		try {
 			registrySender.sendData(setupStatus.getBytes());
 		} catch (IOException e) {
@@ -389,35 +384,29 @@ public class MessagingNode extends Thread implements Node{
 	 * from another MessageNode
 	 * @param event
 	 */
-	public void dataFromMessageNode(Event data){
-		try {
-			OverlayNodeSendsData relayMsg = new OverlayNodeSendsData(data.getBytes());
-			int sink = relayMsg.getDestinationID();
+	public synchronized void dataFromMessageNode(Event data){
+		OverlayNodeSendsData relayMsg = (OverlayNodeSendsData) data;
+		int sink = relayMsg.getDestinationID();
 
-			if(sink == myID){
+		if(sink == myID){
 
-				updateReceived(relayMsg.getPayLoad());
-				relayMsg.updateHopTrace(myID);
+			updateReceived(relayMsg.getPayLoad());
+			relayMsg.updateHopTrace(myID);
 
-				// Debugging
-				if(debug){
-					System.out.println("Received payload for node (" + myID + ")!!");
-					System.out.println("Trace: num hops = " + relayMsg.getHopTraceLength() + ", trace route = " + relayMsg.getHopTrace());
-					System.out.println();
-				}
-
-			}else{
-				// Route the packet
-				try {
-					relayQueue.put(relayMsg);
-				} catch (InterruptedException e) {
-					System.err.println(e.getMessage());
-				}
+			// Debugging
+			if(debug){
+				System.out.println("Received payload for node (" + myID + ")!!");
+				System.out.println("Trace: num hops = " + relayMsg.getHopTraceLength() + ", trace route = " + relayMsg.getHopTrace());
+				System.out.println();
 			}
 
-		} catch (IOException e) {
-			System.out.println("Error getting data: ");
-			e.printStackTrace();
+			
+			
+		}else{
+			// Route the packet
+			synchronized(relayQueue){
+				relayQueue.add(relayMsg);
+			}
 		}
 	}
 
