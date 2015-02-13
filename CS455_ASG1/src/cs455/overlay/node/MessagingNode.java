@@ -24,7 +24,7 @@ import cs455.overlay.wireformats.RegistryReportsRegistrationStatus;
 import cs455.overlay.wireformats.RegistryRequestsTaskInitiate;
 import cs455.overlay.wireformats.RegistrySendsNodeManifest;
 
-public class MessagingNode extends Thread implements Node{
+public class MessagingNode implements Node{
 
 	// Instance variables **************
 	private Map<Integer, TCPSender> clientConnections = new HashMap<Integer, TCPSender>();
@@ -86,8 +86,7 @@ public class MessagingNode extends Thread implements Node{
 		}
 
 		// Start the message handler thread to remove circular wait condition
-		Thread messageHandler = new Thread(this);
-		messageHandler.start();
+		messageRouterThread();
 
 	}
 
@@ -126,26 +125,31 @@ public class MessagingNode extends Thread implements Node{
 	 * Deals with messages that need routed to other clients
 	 * Using Queue to prevent deadlock due to circular wait
 	 */
-	public void run(){
-		while(true){
-			OverlayNodeSendsData relayMsg;
-			try {
-				relayMsg = relayQueue.take();
-				updateRelayed();
-				// Update the dissemination for this packet
-				relayMsg.updateHopLength();
-				relayMsg.updateHopTrace(myID);
-				int sink = relayMsg.getDestinationID();
-				int nearestNeighbor = getNearestNeighbor(sink);
-				clientConnections.get(nearestNeighbor).sendData(relayMsg.getBytes());
+	public void messageRouterThread(){
+		Thread router = new Thread(new Runnable() {
+			public void run() {
+				while(true){
+					OverlayNodeSendsData relayMsg;
+					try {
+						relayMsg = relayQueue.take();
+						updateRelayed();
+						// Update the dissemination for this packet
+						relayMsg.updateHopLength();
+						relayMsg.updateHopTrace(myID);
+						int sink = relayMsg.getDestinationID();
+						int nearestNeighbor = getNearestNeighbor(sink);
+						clientConnections.get(nearestNeighbor).sendData(relayMsg.getBytes());
+					}
+					catch (IOException e) {
+						System.out.println("Error sending relay message to client: ");
+						System.err.println(e.getMessage());
+					} catch (InterruptedException e) {
+						System.err.println(e.getMessage());
+					}
+				}
 			}
-			catch (IOException e) {
-				System.out.println("Error sending relay message to client: ");
-				System.err.println(e.getMessage());
-			} catch (InterruptedException e) {
-				System.err.println(e.getMessage());
-			}
-		}
+		});  
+		router.start();
 	}
 
 	/**
@@ -334,12 +338,13 @@ public class MessagingNode extends Thread implements Node{
 		 * Set/Reset the tracker variables
 		 * so the "start" command can be issued multiple times
 		 */
-		sendTracker 		= 0;
-		sendSummation 		= 0;
-		receiveTraker 		= 0;
-		receiveSummation 	= 0;
-		relayTracker 		= 0;
-
+		synchronized(this){
+			sendTracker 		= 0;
+			sendSummation 		= 0;
+			receiveTraker 		= 0;
+			receiveSummation 	= 0;
+			relayTracker 		= 0;
+		}
 
 		for(int i = 0; i<numPackets; ++i){
 
@@ -384,24 +389,19 @@ public class MessagingNode extends Thread implements Node{
 	 * from another MessageNode
 	 * @param event
 	 */
-	public synchronized void dataFromMessageNode(Event data){
+	public void dataFromMessageNode(Event data){
 		OverlayNodeSendsData relayMsg = (OverlayNodeSendsData) data;
 		int sink = relayMsg.getDestinationID();
-
+		
 		if(sink == myID){
-
 			updateReceived(relayMsg.getPayLoad());
 			relayMsg.updateHopTrace(myID);
-
 			// Debugging
 			if(debug){
 				System.out.println("Received payload for node (" + myID + ")!!");
 				System.out.println("Trace: num hops = " + relayMsg.getHopTraceLength() + ", trace route = " + relayMsg.getHopTrace());
 				System.out.println();
 			}
-
-			
-			
 		}else{
 			// Route the packet
 			synchronized(relayQueue){
@@ -426,7 +426,6 @@ public class MessagingNode extends Thread implements Node{
 		int min = Integer.MAX_VALUE;
 		int compare;
 		int location = -1;
-
 		for (Integer key : clientConnections.keySet()) {
 			compare = sink - key;
 			if(compare < min && compare > 0){
@@ -434,13 +433,11 @@ public class MessagingNode extends Thread implements Node{
 				location = key;
 			}
 		}
-
 		/*
 		 * If location is still -1, the destination node is behind us (looped around in the list)
 		 * Need to determine based on max(Math.abs(a,b))
 		 * Is there a better way to do this in a single loop iteration???
 		 */
-
 		if(location == -1){
 			int max = Integer.MIN_VALUE;
 			for (Integer key : clientConnections.keySet()) {
@@ -454,6 +451,9 @@ public class MessagingNode extends Thread implements Node{
 		return location;
 	}
 
+	/*
+	 * Simple helper method to send data to a client
+	 */
 	private void sendDataToClient(int id, Event data){
 		try {
 			clientConnections.get(id).sendData(data.getBytes());
@@ -463,6 +463,10 @@ public class MessagingNode extends Thread implements Node{
 		}
 	}
 
+	/*
+	 * Select a random not to send data to
+	 * not equal to self
+	 */
 	private int selectRandomNode(Random rand){
 		int r = rand.nextInt(nodeList.length);
 		while(nodeList[r] == myID){
@@ -471,20 +475,24 @@ public class MessagingNode extends Thread implements Node{
 		return nodeList[r];
 	}
 
+	/*
+	 * Get a random payload to send
+	 */
 	private int getPayload(){
 		Random rand = new Random();		
 		return rand.nextInt();
 	}
 
+	/*
+	 * STATISTIC UPDATER METHODS
+	 */
 	private synchronized void updateSent(long payload){
 		sendTracker++;
 		sendSummation += payload;
 	}
-
 	private synchronized void updateRelayed(){
 		relayTracker++;
 	}
-
 	private synchronized void updateReceived(int payload){
 		receiveTraker++;
 		receiveSummation += payload;
