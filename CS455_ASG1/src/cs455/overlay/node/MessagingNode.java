@@ -181,7 +181,7 @@ public class MessagingNode implements Node{
 		});  
 		listener.start();
 	}
- 
+
 	@Override
 	public void onEvent(Event event, int id) {
 
