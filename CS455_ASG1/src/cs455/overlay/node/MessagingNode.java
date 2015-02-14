@@ -16,8 +16,6 @@ import java.util.NavigableMap;
 import java.util.Queue;
 import java.util.Random;
 import java.util.TreeMap;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import cs455.overlay.routing.RoutingEntry;
 import cs455.overlay.transport.TCPReceiverThread;
@@ -135,7 +133,6 @@ public class MessagingNode implements Node{
 		Thread router = new Thread(new Runnable() {
 			public void run() {
 				while(true){
-					int counter = 0;
 					OverlayNodeSendsData relayMsg;
 					synchronized(relayQueue){
 						relayMsg = relayQueue.poll();
