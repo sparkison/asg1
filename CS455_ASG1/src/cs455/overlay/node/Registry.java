@@ -146,15 +146,15 @@ public class Registry implements Node{
 		OverlayNodeReportsTaskFinished taskFinish = (OverlayNodeReportsTaskFinished) event;
 		nodesCompleted.add(taskFinish);
 		if(nodesCompleted.size() == nodeRegistered.size()){
-			System.out.print("all nodes reported task complete waiting 10 seconds to request summary...");
+			System.out.print("all nodes reported task complete waiting 30 seconds to request summary...");
 			// All nodes have reported task finish
 			try {
 				/*
-				 * Sleep for 10 seconds to allow threads time to finish up
+				 * Sleep for 30 seconds to allow threads time to finish up
 				 * since it's possible clients have finished sending, but there
 				 * may still be threads outstanding sending messages...
 				 */
-				Thread.sleep(10000);
+				Thread.sleep(30000);
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
 			}
