@@ -10,12 +10,12 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.LinkedList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.NavigableMap;
-import java.util.Queue;
+import java.util.Map;
 import java.util.Random;
-import java.util.TreeMap;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import cs455.overlay.routing.RoutingEntry;
 import cs455.overlay.transport.TCPReceiverThread;
@@ -33,8 +33,8 @@ import cs455.overlay.wireformats.RegistrySendsNodeManifest;
 public class MessagingNode implements Node{
 
 	// Instance variables **************
-	private NavigableMap<Integer, TCPSender> clientConnections = new TreeMap<Integer, TCPSender>();
-	private Queue<OverlayNodeSendsData> relayQueue = new LinkedList<OverlayNodeSendsData>();
+	private Map<Integer, TCPSender> clientConnections = new HashMap<Integer, TCPSender>();
+	private BlockingQueue<OverlayNodeSendsData> relayQueue = new LinkedBlockingQueue<OverlayNodeSendsData>();
 	private EventFactory ef = EventFactory.getInstance();
 	private String myIPAddress;
 	private int myID;
@@ -90,8 +90,7 @@ public class MessagingNode implements Node{
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		// Set IP address 
-		myIPAddress = clientSocket.getLocalAddress().toString().split("/")[1];
+
 		// Start the message handler thread to remove circular wait condition
 		messageRouterThread();
 
@@ -101,12 +100,15 @@ public class MessagingNode implements Node{
 		// Construct the Messaging Node
 		MessagingNode messageNode = new MessagingNode(args[0], Integer.parseInt(args[1]));
 		// Spawn a thread to list for connections on the ServerSocket
-		messageNode.listenThread();
+		messageNode.listen();
 		// Initialize this Messaging Node
 		messageNode.intializeMessageNode();
 	}
 
 	private void intializeMessageNode(){
+		// Send registration event to Registry
+		myIPAddress = clientSocket.getLocalAddress().toString().split("/")[1];
+
 		// Build a new registration event
 		Event registerClient = ef.buildEvent(Protocol.OVERLAY_NODE_SENDS_REGISTRATION, 
 				myIPAddress.length()+";"+myIPAddress+";" + listenPort);
@@ -134,30 +136,21 @@ public class MessagingNode implements Node{
 			public void run() {
 				while(true){
 					OverlayNodeSendsData relayMsg;
-					synchronized(relayQueue){
-						relayMsg = relayQueue.poll();
+					try {
+						relayMsg = relayQueue.take();
+						updateRelayed();
+						// Update the dissemination for this packet
+						relayMsg.updateHopLength();
+						relayMsg.updateHopTrace(myID);
+						int sink = relayMsg.getDestinationID();
+						int nearestNeighbor = getNearestNeighbor(sink);
+						clientConnections.get(nearestNeighbor).sendData(relayMsg.getBytes());
 					}
-					if(relayMsg != null){
-						try {
-							updateRelayed();
-							// Update the dissemination for this packet
-							relayMsg.updateHopLength();
-							relayMsg.updateHopTrace(myID);
-							int sink = relayMsg.getDestinationID();
-							int nearestNeighbor = getNearestNeighbor(sink);
-							synchronized(clientConnections){
-								clientConnections.get(nearestNeighbor).sendData(relayMsg.getBytes());
-							}
-						} catch (IOException e) {
-							System.out.println("Error sending relay message to client: ");
-							System.err.println(e.getMessage());
-						}
-					}else{
-						try {
-							Thread.sleep(500);
-						} catch (InterruptedException e) {
-							System.err.println(e.getMessage());
-						}
+					catch (IOException e) {
+						System.out.println("Error sending relay message to client: ");
+						System.err.println(e.getMessage());
+					} catch (InterruptedException e) {
+						System.err.println(e.getMessage());
 					}
 				}
 			}
@@ -169,7 +162,7 @@ public class MessagingNode implements Node{
 	 * Listen method with embedded Thread class to
 	 * start listening for client connections
 	 */
-	public void listenThread(){
+	public void listen(){
 		// "this" reference to use for spawning the listening Thread
 		final MessagingNode messageNode = this;
 		// "listener" Thread to accept incoming connections
@@ -337,7 +330,7 @@ public class MessagingNode implements Node{
 
 		int payload;
 		int sink;
-
+		Random rand = new Random();
 		/*
 		 * Setting hop to source initially, specs say not to, but makes 
 		 * it easier to track packet from source to sink...
@@ -363,7 +356,7 @@ public class MessagingNode implements Node{
 
 			// Get payload and select node to send to
 			payload = getPayload();
-			sink = selectRandomNode();
+			sink = selectRandomNode(rand);
 
 			// Debugging
 			if(debug)
@@ -405,7 +398,7 @@ public class MessagingNode implements Node{
 	public void dataFromMessageNode(Event data){
 		OverlayNodeSendsData relayMsg = (OverlayNodeSendsData) data;
 		int sink = relayMsg.getDestinationID();
-
+		
 		if(sink == myID){
 			updateReceived(relayMsg.getPayLoad());
 			relayMsg.updateHopTrace(myID);
@@ -416,8 +409,8 @@ public class MessagingNode implements Node{
 				System.out.println();
 			}
 		}else{
+			// Route the packet
 			synchronized(relayQueue){
-				// Route the packet
 				relayQueue.add(relayMsg);
 			}
 		}
@@ -468,22 +461,19 @@ public class MessagingNode implements Node{
 	 * Simple helper method to send data to a client
 	 */
 	private void sendDataToClient(int id, Event data){
-		synchronized(clientConnections){
-			try {
-				clientConnections.get(id).sendData(data.getBytes());
-			} catch (IOException e) {
-				System.out.println("Error sending payload to client: ");
-				e.printStackTrace();
-			}
+		try {
+			clientConnections.get(id).sendData(data.getBytes());
+		} catch (IOException e) {
+			System.out.println("Error sending payload to client: ");
+			e.printStackTrace();
 		}
 	}
 
 	/*
-	 * Select a random node to send data to
+	 * Select a random not to send data to
 	 * not equal to self
 	 */
-	private int selectRandomNode(){
-		Random rand = new Random();
+	private int selectRandomNode(Random rand){
 		int r = rand.nextInt(nodeList.length);
 		while(nodeList[r] == myID){
 			r = rand.nextInt(nodeList.length);
@@ -518,9 +508,6 @@ public class MessagingNode implements Node{
 	 * SEND TO REGISTRY
 	 */
 
-	/**
-	 * Send deregistration event to Registry
-	 */
 	public void sendDeregistration(){
 		String message = myIPAddress.length() + ";" + myIPAddress + ";" + listenPort + ";" + myID;
 		Event e = ef.buildEvent(Protocol.OVERLAY_NODE_SENDS_DEREGISTRATION, message);
@@ -529,23 +516,6 @@ public class MessagingNode implements Node{
 		} catch (IOException e1) {
 			System.out.println("Error sending deregistration to Registry: ");
 			e1.printStackTrace();
-		}
-
-	}
-
-	/**
-	 * Send statistics summary event to Registry
-	 */
-	private void getStats(){
-
-		Event reportSummary = ef.buildEvent(Protocol.OVERLAY_NODE_REPORTS_TRAFFIC_SUMMARY, myID 
-				+ ";" + sendTracker + ";" + relayTracker + ";" + sendSummation 
-				+ ";" + receiveTraker + ";" + receiveSummation);
-		try {
-			registrySender.sendData(reportSummary.getBytes());
-		} catch (IOException e) {
-			System.out.println("Error sending report summary to Registry: ");
-			e.printStackTrace();
 		}
 
 	}
@@ -579,6 +549,23 @@ public class MessagingNode implements Node{
 	}
 
 	/**
+	 * Send statistics summary to Registry
+	 */
+	private void getStats(){
+
+		Event reportSummary = ef.buildEvent(Protocol.OVERLAY_NODE_REPORTS_TRAFFIC_SUMMARY, myID 
+				+ ";" + sendTracker + ";" + relayTracker + ";" + sendSummation 
+				+ ";" + receiveTraker + ";" + receiveSummation);
+		try {
+			registrySender.sendData(reportSummary.getBytes());
+		} catch (IOException e) {
+			System.out.println("Error sending report summary to Registry: ");
+			e.printStackTrace();
+		}
+
+	}
+
+	/**
 	 * Prints out this nodes statistics
 	 */
 	public void printCounters(){
@@ -599,11 +586,11 @@ public class MessagingNode implements Node{
 	 */
 	public void setDebug(){
 		if(debug){
-			debug = false;
 			System.out.println("Debugging disabled for this node");
+			debug = false;
 		}else{
-			debug = true;
 			System.out.println("Debugging enabled for this node");
+			debug = true;
 		}
 
 	}
@@ -616,9 +603,10 @@ public class MessagingNode implements Node{
 			clientSocket.close();
 			svSocket.close();
 		} catch (IOException e) {
-			System.err.println(e.getMessage());
+			e.printStackTrace();
+		} finally {
+			System.exit(-1);
 		}
-		System.exit(0);
 
 	}
 
