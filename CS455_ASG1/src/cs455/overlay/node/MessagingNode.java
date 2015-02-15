@@ -431,16 +431,39 @@ public class MessagingNode implements Node{
 	 * @param data
 	 */
 	private int getNearestNeighbor(int sink){
-		int distance = Math.abs(connectionIds.get(0) - sink);
-		int dest = 0;
-		for(int i = 1; i < connectionIds.size(); i++){
-		    int tempDist = Math.abs(connectionIds.get(i) - sink);
-		    if(tempDist < distance){
-		    	dest = i;
-		        distance = tempDist;
-		    }
+		/*
+		 * Node not in list of connections, need to find nearest node
+		 * Idea: take sink - nodeID, if negative, we passed the sink
+		 * ignore it, else compare to min, if less set to min, continue
+		 * After comparing all clientConnections end up with nearest node
+		 */
+		int compare;
+		int location = -1;
+		
+		int min = Integer.MAX_VALUE;
+		for(int i = 0; i<connectionIds.size(); i++){
+			compare = sink - connectionIds.get(i);
+			if(compare >= 0 && compare < min){
+				min = compare;
+				location = connectionIds.get(i);
+			}
 		}
-		return connectionIds.get(dest);
+		/*
+		 * If location is still -1, the destination node is behind us (looped around in the list)
+		 * Need to determine based on max(Math.abs(a,b))
+		 * Is there a better way to do this in a single loop iteration???
+		 */
+		if(location == -1){
+			int max = Integer.MIN_VALUE;
+			for(int i = 0; i<connectionIds.size(); i++){
+				compare = Math.abs(sink - connectionIds.get(i));
+				if(compare > max){
+					max = compare;
+					location = connectionIds.get(i);
+				}
+			}
+		}
+		return location;
 	}
 
 	/*
