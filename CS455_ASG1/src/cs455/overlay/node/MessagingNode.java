@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -36,6 +37,7 @@ public class MessagingNode implements Node{
 	private Map<Integer, TCPSender> clientConnections = new TreeMap<Integer, TCPSender>();
 	private BlockingQueue<OverlayNodeSendsData> relayQueue = new LinkedBlockingQueue<OverlayNodeSendsData>();
 	private EventFactory ef = EventFactory.getInstance();
+	private List<Integer> connectionIds;
 	private String myIPAddress;
 	private int myID;
 	private int listenPort;
@@ -144,6 +146,8 @@ public class MessagingNode implements Node{
 						relayMsg.updateHopTrace(myID);
 						int sink = relayMsg.getDestinationID();
 						int nearestNeighbor = getNearestNeighbor(sink);
+						if(debug)
+							System.out.println("Node " + myID + " relaying message for " + sink + " to " + nearestNeighbor);
 						synchronized(clientConnections){
 							clientConnections.get(nearestNeighbor).sendData(relayMsg.getBytes());
 						}
@@ -309,6 +313,8 @@ public class MessagingNode implements Node{
 			}
 
 		}
+		// Initialize the connection id's array list, used to find nearest neighbor for forwarding messages
+		connectionIds = new ArrayList<Integer>(clientConnections.keySet());
 
 		// Notify Registry of setup status
 		Event setupStatus = ef.buildEvent(Protocol.NODE_REPORTS_OVERLAY_SETUP_STATUS, status + ";" + statusMessage.length() + ";" + statusMessage);
@@ -425,38 +431,16 @@ public class MessagingNode implements Node{
 	 * @param data
 	 */
 	private int getNearestNeighbor(int sink){
-		/*
-		 * Node not in list of connections, need to find nearest node
-		 * Idea: take sink - nodeID, if negative, we passed the sink
-		 * ignore it, else compare to min, if less set to min, continue
-		 * After comparing all clientConnections end up with nearest node
-		 */
-		int min = Integer.MAX_VALUE;
-		int compare;
-		int location = -1;
-		for (Integer key : clientConnections.keySet()) {
-			compare = sink - key;
-			if(compare < min && compare > 0){
-				min = compare;
-				location = key;
-			}
+		int distance = Math.abs(connectionIds.get(0) - sink);
+		int dest = 0;
+		for(int i = 1; i < connectionIds.size(); i++){
+		    int tempDist = Math.abs(connectionIds.get(i) - sink);
+		    if(tempDist < distance){
+		    	dest = i;
+		        distance = tempDist;
+		    }
 		}
-		/*
-		 * If location is still -1, the destination node is behind us (looped around in the list)
-		 * Need to determine based on max(Math.abs(a,b))
-		 * Is there a better way to do this in a single loop iteration???
-		 */
-		if(location == -1){
-			int max = Integer.MIN_VALUE;
-			for (Integer key : clientConnections.keySet()) {
-				compare = Math.abs(sink - key);
-				if(compare > max){
-					max = compare;
-					location = key;
-				}
-			}
-		}
-		return location;
+		return connectionIds.get(dest);
 	}
 
 	/*
