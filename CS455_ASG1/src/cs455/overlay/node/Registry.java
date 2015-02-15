@@ -11,10 +11,10 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import cs455.overlay.routing.RoutingEntry;
 import cs455.overlay.routing.RoutingTable;
@@ -33,7 +33,7 @@ import cs455.overlay.wireformats.Protocol;
 public class Registry implements Node{
 
 	// Instance variables **************
-	private Map<Integer, OverlayNodeSendsRegistration> nodeRegistered = new HashMap<Integer, OverlayNodeSendsRegistration>();
+	private Map<Integer, OverlayNodeSendsRegistration> nodeRegistered = new TreeMap<Integer, OverlayNodeSendsRegistration>();
 	private StatisticsCollectorAndDisplay statistics = new StatisticsCollectorAndDisplay();
 	private TCPConnectionCache connectionCache = new TCPConnectionCache();
 	private List<Event> nodesCompleted = new ArrayList<Event>();
@@ -45,8 +45,7 @@ public class Registry implements Node{
 	private int NR = 3;
 
 	// Registry constructor
-	public Registry(int port){
-				
+	public Registry(int port){	
 		try {
 			// Open ServerSocket to accept data from Messaging Nodes
 			svSocket = new ServerSocket(port);
@@ -73,7 +72,6 @@ public class Registry implements Node{
 		// "listener" Thread to accept incoming connections
 		Thread listener = new Thread(new Runnable() {
 			public void run() {
-
 				while(true){
 					try {
 						/*
@@ -91,7 +89,6 @@ public class Registry implements Node{
 						e.printStackTrace();
 					}
 				}
-
 			}
 		});
 		listener.start();
@@ -216,8 +213,10 @@ public class Registry implements Node{
 	 * @param id
 	 */
 	private synchronized void nodeSendsDeRegisterNode(Event event, int id){
+		
 		int status = -1;
 		OverlayNodeSendsDeregistration deregister = (OverlayNodeSendsDeregistration) event;
+		
 		if(nodeRegistered.remove(deregister.getNodeID()) != null){
 			status = 1;
 		}
@@ -356,18 +355,13 @@ public class Registry implements Node{
 
 			}
 
-			// Build the routing table using the RoutingEntry list 
-			// created above
+			// Build the routing table using the RoutingEntry list created above
 			routingTable = new RoutingTable(NR, entries);
-
-
-			//System.out.println("The nodes list is: " + rt.getNodesList());
 
 			for (Integer key : nodeRegistered.keySet()) {
 				String message =  NR + ";" + routingTable.getNodesList() + ";" + routingTable.getNodesTable(key) + ";" + nodeRegistered.size();
 				Event e = ef.buildEvent(Protocol.REGISTRY_SENDS_NODE_MANIFEST, message);
 				try {
-					// System.out.println("Sending manifest to node: " + client.toString());
 					connectionCache.getConnection(key).sendData(e.getBytes());
 				} catch (IOException e1) {
 					System.out.println("Error sending manifest to client " + key + ": ");
@@ -410,7 +404,6 @@ public class Registry implements Node{
 	/**
 	 * Setter/Getter for NR size
 	 * Called by the command parser
-	 * @param size
 	 */
 	public void setNRSize(int size){
 		NR = size;

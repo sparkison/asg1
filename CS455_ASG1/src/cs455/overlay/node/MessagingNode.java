@@ -10,10 +10,10 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -33,7 +33,7 @@ import cs455.overlay.wireformats.RegistrySendsNodeManifest;
 public class MessagingNode implements Node{
 
 	// Instance variables **************
-	private Map<Integer, TCPSender> clientConnections = new HashMap<Integer, TCPSender>();
+	private Map<Integer, TCPSender> clientConnections = new TreeMap<Integer, TCPSender>();
 	private BlockingQueue<OverlayNodeSendsData> relayQueue = new LinkedBlockingQueue<OverlayNodeSendsData>();
 	private EventFactory ef = EventFactory.getInstance();
 	private String myIPAddress;
@@ -144,7 +144,9 @@ public class MessagingNode implements Node{
 						relayMsg.updateHopTrace(myID);
 						int sink = relayMsg.getDestinationID();
 						int nearestNeighbor = getNearestNeighbor(sink);
-						clientConnections.get(nearestNeighbor).sendData(relayMsg.getBytes());
+						synchronized(clientConnections){
+							clientConnections.get(nearestNeighbor).sendData(relayMsg.getBytes());
+						}
 					}
 					catch (IOException e) {
 						System.out.println("Error sending relay message to client: ");
@@ -461,11 +463,13 @@ public class MessagingNode implements Node{
 	 * Simple helper method to send data to a client
 	 */
 	private void sendDataToClient(int id, Event data){
-		try {
-			clientConnections.get(id).sendData(data.getBytes());
-		} catch (IOException e) {
-			System.out.println("Error sending payload to client: ");
-			e.printStackTrace();
+		synchronized(clientConnections){
+			try {
+				clientConnections.get(id).sendData(data.getBytes());
+			} catch (IOException e) {
+				System.out.println("Error sending payload to client: ");
+				e.printStackTrace();
+			}
 		}
 	}
 
