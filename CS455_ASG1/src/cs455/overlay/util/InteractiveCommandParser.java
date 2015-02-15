@@ -77,7 +77,7 @@ public class InteractiveCommandParser{
 			registeryNode.printNodes();
 		}else if(message.equals("list-routing-tables")){
 			registeryNode.listRoutingTables();
-		}else if(message.startsWith("setup-overlay")){
+		}else if(message.startsWith("setup-overlay") || message.startsWith("so")){
 			int NR = registeryNode.getNRSize();
 			try{
 				NR = Integer.parseInt(message.split(" ")[1]);
