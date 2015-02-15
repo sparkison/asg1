@@ -152,6 +152,12 @@ public class MessagingNode implements Node{
 							System.out.println("Error sending relay message to client: ");
 							System.err.println(e.getMessage());
 						}
+					}else{
+						try {
+							Thread.sleep(500);
+						} catch (InterruptedException e) {
+							System.err.println(e.getMessage());
+						}
 					}
 				}
 			}
